@@ -10,7 +10,7 @@ uniform   sampler2D     colortex2;
 const     float         sunPathRotation           = -22.5; // [-22.5 22.5]
 const     float         shadowDistance            = 128.0;
 
-const     int           shadowMapResolution       = 4096;  // [1024 2048 4096]
+const     int           shadowMapResolution       = 2048;  // [1024 2048 4096]
 const     int           noiseTextureResolution    = 512;
 
 //#define   BAD_SKY
@@ -20,7 +20,7 @@ const     int           noiseTextureResolution    = 512;
 #define   PCF_SAMPLE_COUNT                          2      // [1 2 3 4 5]
 #define   PCSS_SAMPLE_COUNT                         3      // [1 2 3 4 5]
 #define   MIN_PENUMBRA_SIZE                         0.25   // [0.0 0.1 0.25 0.5]
-#define   LIGHT_SIZE                                100    // [100 125 150]
+#define   LIGHT_SIZE                                75    // [50 75 100 125 150]
 #define   PCSS
 
 uniform   int           worldTime;
@@ -227,7 +227,7 @@ float getPenumbraWidth(in vec3 shadowCoord) {
 
     for (int x = -PCSS_SAMPLE_COUNT; x < PCSS_SAMPLE_COUNT; x++) {
         for (int y = -PCSS_SAMPLE_COUNT; y < PCSS_SAMPLE_COUNT; y++) {
-            vec2 sampleCoord = shadowCoord.st + (vec2(x, y) * searchSize / (shadowMapResolution * 5 * PCSS_SAMPLE_COUNT));
+            vec2 sampleCoord = shadowCoord.st + (vec2(x, y) * searchSize / (shadowMapResolution * 25 * PCSS_SAMPLE_COUNT));
             shadowMapSample = texture2D(shadowtex0, sampleCoord, 2.0).r;
 
             dBlocker += shadowMapSample;
