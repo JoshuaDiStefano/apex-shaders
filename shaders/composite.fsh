@@ -103,7 +103,7 @@ vec4 calculateLighting(in Fragment frag, in Lightmap lm, in vec2 coord, in float
     float uDotL = dot(normalize(upPosition), lightVector);
     float nDotH = dot(frag.normal, halfAngle);
 
-    float directLightStrength = mix(0.1, nDotL * 0.2, frag.albedo.a);
+    float directLightStrength = mix(0.1, nDotL * 0.1, frag.albedo.a);
     directLightStrength = max(0.0, directLightStrength);
     vec3 directLight = directLightStrength * lightColor;
 
@@ -112,9 +112,9 @@ vec4 calculateLighting(in Fragment frag, in Lightmap lm, in vec2 coord, in float
 
     vec3 skyLight = skyColor * lm.skyLightStrength;
 
-    vec3 nonDirectLight = skyLight + torchLight;
-    vec3 litColor = frag.albedo.rgb * (directLight + nonDirectLight);
-
+    //vec3 nonDirectLight = skyLight + torchLight;
+    vec3 litColor = frag.albedo.rgb * (directLight + skyLight);
+/*
     float a = acos(nDotH);
     float b = normalize(cos(a));
     b *= b;
@@ -122,8 +122,8 @@ vec4 calculateLighting(in Fragment frag, in Lightmap lm, in vec2 coord, in float
     float m = 1.0;
     float d = m * m;
     float specular = (exp((1.0 - b) / (b * d)) / (pi * d * c));
-
-    return vec4(litColor * specular, frag.albedo.a);
+*/
+    return vec4(litColor, frag.albedo.a);
 }
 
 void main() {
