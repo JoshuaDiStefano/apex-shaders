@@ -108,7 +108,7 @@ void main() {
         waterColor.rgb = tintColor;
     #endif
 
-    FragData4 = vec4(waterColor.rgb * 1.25, waterColor.a * 0.5 + 0.5);
+    FragData4 = vec4(waterColor.rgb, waterColor.a * 0.5 + 0.5);
     FragData1 = vec4(lmcoord.st / 16.0, 0.0, 1.0);
     FragData2 = vec4(normal * 0.5 + 0.5, 1.0);
 }
