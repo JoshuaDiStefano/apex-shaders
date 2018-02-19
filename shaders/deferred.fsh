@@ -7,20 +7,20 @@ uniform   sampler2D     colortex0;
 uniform   sampler2D     colortex1;
 uniform   sampler2D     colortex2;
 
-const     float         sunPathRotation           = -22.5;
+const     float         sunPathRotation           = -22.5; // [-22.5 22.5]
 const     float         shadowDistance            = 128.0;
 
-const     int           shadowMapResolution       = 4096;   // [1024 2048 4096]
+const     int           shadowMapResolution       = 4096;  // [1024 2048 4096]
 const     int           noiseTextureResolution    = 512;
 
-#define   BAD_SKY
+//#define   BAD_SKY
 #define   RANDOM_ROTATION
-#define   RANDOM_ROTATION_FILTER
+//#define   RANDOM_ROTATION_FILTER
 
-#define   PCF_SAMPLE_COUNT                            2     // [1 2 3 4 5]
-#define   PCSS_SAMPLE_COUNT                           3     // [1 2 3 4 5]
-#define   MIN_PENUMBRA_SIZE                           0.25  // [0.0 0.1 0.25 0.5]
-#define   LIGHT_SIZE                                  100   // [100 125 150]
+#define   PCF_SAMPLE_COUNT                          2      // [1 2 3 4 5]
+#define   PCSS_SAMPLE_COUNT                         3      // [1 2 3 4 5]
+#define   MIN_PENUMBRA_SIZE                         0.25   // [0.0 0.1 0.25 0.5]
+#define   LIGHT_SIZE                                100    // [100 125 150]
 #define   PCSS
 
 uniform   int           worldTime;
