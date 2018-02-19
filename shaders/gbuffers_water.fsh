@@ -101,21 +101,14 @@ void main() {
 
     } else {
         waterColor = texture2D(texture, texcoord.st);
-        waterColor.rgb *= vec3(0.0, 0.375, 0.5625); //(0.0, 0.25, 0.375) * 1.5;
-
-        if (bool(isNPortal)) {
-            waterColor.rgb *= tintColor;
-            //waterColor = vec4(1.0, 0.0, 1.0, 0.5);
-        } else {
-            waterColor.rgb *= tintColor;
-        }
+        waterColor.rgb *= tintColor;
     }    
 
     #ifdef CLAY
         waterColor.rgb = tintColor;
     #endif
 
-    FragData4 = waterColor;
+    FragData4 = vec4(waterColor.rgb * 1.25, waterColor.a * 0.5 + 0.5);
     FragData1 = vec4(lmcoord.st / 16.0, 0.0, 1.0);
     FragData2 = vec4(normal * 0.5 + 0.5, 1.0);
 }
