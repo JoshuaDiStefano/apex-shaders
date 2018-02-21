@@ -2,7 +2,7 @@
 
 //#define CINEMATIC_MODE
 #define   DOF
-#define   APERTURE                                  0.015 // [0.01 0.015 0.02 0.025 0.05 0.06 0.075] Bigger values for shallower depth of field
+#define   APERTURE                                  0.015 // [0.01 0.015 0.02 0.025 0.05 0.06 0.075 0.08 0.1 0.25 0.5] Bigger values for shallower depth of field
 #define   DOF_FALLOFF_STRENGTH                      2.5   // [1.5 2.5 5.0 7.5 10.0]
 
 const     float         dofStrength               = DOF_FALLOFF_STRENGTH;
