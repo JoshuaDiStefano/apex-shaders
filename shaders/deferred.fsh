@@ -321,22 +321,26 @@ Lightmap getLightmapSample(in vec2 coord) {
     return lightmap;
 }
 
-vec3 calculateLighting(in Fragment frag, in Lightmap lm, in vec2 coord) {
-    float nDotL = dot(frag.normal, lightVector);
-    float uDotL = dot(normalize(upPosition), lightVector);  
+vec3 calculateLighting(in Fragment frag, in Lightmap lm, in vec2 coord, in bool isSky) {
+    if (!isSky) {
+        float nDotL = dot(frag.normal, lightVector);
+        float uDotL = dot(normalize(upPosition), lightVector);  
 
-    float directLightStrength = max(0.0, nDotL);
-    vec3 directLight = directLightStrength * lightColor;
+        float directLightStrength = max(0.0, nDotL);
+        vec3 directLight = directLightStrength * lightColor;
 
-    vec3 torchColor = vec3(0.85, 0.2, 0.05) * 0.025;
-    vec3 torchLight = torchColor * lm.torchLightStrength;
-    vec3 skyLight = skyColor * lm.skyLightStrength;
+        vec3 torchColor = vec3(0.85, 0.2, 0.05) * 0.025;
+        vec3 torchLight = torchColor * lm.torchLightStrength;
+        vec3 skyLight = skyColor * lm.skyLightStrength;
 
-    vec3 shadowColor = getShadowColor(coord);
-    vec3 nonDirectLight = skyLight + torchLight;
-    vec3 litColor = frag.albedo * (directLight * shadowColor + nonDirectLight);
+        vec3 shadowColor = getShadowColor(coord);
+        vec3 nonDirectLight = skyLight + torchLight + 0.02;
+        vec3 litColor = frag.albedo * (directLight * shadowColor + nonDirectLight);
 
-    return mix(litColor, frag.albedo * (uDotL * lightColor * shadowColor + nonDirectLight), frag.emission);
+        return mix(litColor, frag.albedo * (uDotL * lightColor * shadowColor + nonDirectLight), frag.emission);
+    } else {
+        return frag.albedo;
+    }
 }
 
 void main() {
@@ -349,10 +353,11 @@ void main() {
 
     if (texture2D(depthtex0, texcoord.st) == vec4(1.0)) {
         finalColor = calcSky(texcoord.st);
+        //finalColor = calculateLighting(frag, lm, texcoord.st, true);
         //finalColor = vec3(fract(worldPos.xz), 0.0);
         //finalColor = texture2D(noisetex, worldPos.xz / worldPos.y).rgb;
     } else {
-        finalColor = calculateLighting(frag, lm, texcoord.st);
+        finalColor = calculateLighting(frag, lm, texcoord.st, false);
     }
         /*else if (texture2D(colortex4, texcoord.st).r == 1.0) {
         finalColor = texture2D(colortex4, texcoord.st).rgb;
