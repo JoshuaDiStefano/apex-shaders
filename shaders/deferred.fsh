@@ -245,6 +245,7 @@ float getPenumbraWidth(in vec3 shadowCoord) {
 
 vec3 getShadowColor(in vec2 coord) {
     vec3 shadowCoord = getShadowSpacePosition(coord);
+    vec3 shadowColor = vec3(0.0);
 
     #ifdef PCSS
         float penumbraSize = getPenumbraWidth(shadowCoord);
@@ -252,15 +253,13 @@ vec3 getShadowColor(in vec2 coord) {
         float penumbraSize = 0.5;
     #endif
 
-    float numSamples = 0.0;
-
-    vec3 shadowColor = vec3(0.0);
-
-    mat2 rotationMatrix = getRotationMatrix(coord);
+    int numSamples = 64;
     
     float shadowMapBias;
 
-    for (int i = 0; i < 64; i++) {
+    mat2 rotationMatrix = getRotationMatrix(coord);
+
+    for (int i = 0; i < numSamples; i++) {
         vec2 offset = disc64[i] / shadowMapResolution;
         offset *= penumbraSize;
         #ifdef RANDOM_ROTATION
@@ -276,8 +275,6 @@ vec3 getShadowColor(in vec2 coord) {
 
         vec3 colorSample = texture2D(shadowcolor0, adjustedShadowCoord).rgb;
         shadowColor += mix(colorSample, vec3(1.0), visibility);
-
-        numSamples++;
     }
 
     shadowColor /= numSamples;
@@ -333,11 +330,13 @@ vec3 calculateLighting(in Fragment frag, in Lightmap lm, in vec2 coord, in bool 
         vec3 torchLight = torchColor * lm.torchLightStrength;
         vec3 skyLight = skyColor * lm.skyLightStrength;
 
-        vec3 shadowColor = getShadowColor(coord);
+        vec3 shadowColor = getShadowColor(coord) + nonDirectLight;
+	
         vec3 nonDirectLight = skyLight + torchLight + 0.02;
-        vec3 litColor = frag.albedo * (directLight * shadowColor + nonDirectLight);
+        vec3 litColor = frag.albedo * (directLight * shadowColor);
+	vec3 emissiveColor = frag.albedo * (uDotL * lightColor * shadowColor);
 
-        return mix(litColor, frag.albedo * (uDotL * lightColor * shadowColor + nonDirectLight), frag.emission);
+        return mix(litColor, emissiveColor, frag.emission);
     } else {
         return frag.albedo;
     }
@@ -353,24 +352,18 @@ void main() {
 
     if (texture2D(depthtex0, texcoord.st) == vec4(1.0)) {
         finalColor = calcSky(texcoord.st);
+	
         //finalColor = calculateLighting(frag, lm, texcoord.st, true);
         //finalColor = vec3(fract(worldPos.xz), 0.0);
         //finalColor = texture2D(noisetex, worldPos.xz / worldPos.y).rgb;
     } else {
         finalColor = calculateLighting(frag, lm, texcoord.st, false);
     }
-        /*else if (texture2D(colortex4, texcoord.st).r == 1.0) {
-        finalColor = texture2D(colortex4, texcoord.st).rgb;
-        //finalColor += calculateLighting(frag, lm, texcoord.st);
-    } else {
-        finalColor = calculateLighting(frag, lm, texcoord.st);
-    }*/
-
-    //finalColor = texture2D(colortex4, texcoord.st).rgb;
 
     //FragData0 = vec4(vec3(fract(worldPos.xz / worldPos.y), 0.0), 1.0);
     //FragData0 = vec4(texture2D(gdepthtex, texcoord.st).rgb, 1.0);
     //FragData0 = vec4(vec3((getCameraDepthBuffer(texcoord.st)) / 50.0), 1.0);
+    
     FragData0 = vec4(finalColor, 1.0);
     FragData4 = vec4(0.0);
 }
