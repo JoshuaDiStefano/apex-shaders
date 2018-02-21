@@ -14,9 +14,6 @@ uniform   sampler2D     gdepthtex;
 uniform   vec3          upPosition;
 uniform   vec3          cameraPosition;
 
-uniform   vec2          viewHeight;
-uniform   vec2          viewWidth;
-
 varying   vec4          texcoord;
 
 varying   vec3          lightVector;
@@ -92,16 +89,9 @@ Lightmap getLightmapSample(in vec2 coord) {
     return lightmap;
 }
 
-vec4 calculateLighting(in Fragment frag, in Lightmap lm, in vec2 coord, in float isTransparent) {
-    vec4 fragposition = gbufferProjectionInverse * vec4(coord.s * 2.0f - 1.0f, coord.t * 2.0f - 1.0f, 2.0f * getDepth(coord).r - 1.0f, 1.0f);
-	fragposition /= fragposition.w;
-
-    vec3 viewDirection = normalize(-fragposition.xyz);
-    vec3 halfAngle = normalize(lightVector + viewDirection);
-
+vec4 calculateLighting(in Fragment frag, in Lightmap lm, in vec2 coord) {
     float nDotL = dot(frag.normal, lightVector);
     float uDotL = dot(normalize(upPosition), lightVector);
-    float nDotH = dot(frag.normal, halfAngle);
 
     float directLightStrength = mix(0.1, nDotL * 0.1, frag.albedo.a);
     directLightStrength = max(0.0, directLightStrength);
@@ -112,17 +102,9 @@ vec4 calculateLighting(in Fragment frag, in Lightmap lm, in vec2 coord, in float
 
     vec3 skyLight = skyColor * lm.skyLightStrength;
 
-    //vec3 nonDirectLight = skyLight + torchLight;
-    vec3 litColor = frag.albedo.rgb * (directLight + skyLight);
-/*
-    float a = acos(nDotH);
-    float b = normalize(cos(a));
-    b *= b;
-    float c = b * b;
-    float m = 1.0;
-    float d = m * m;
-    float specular = (exp((1.0 - b) / (b * d)) / (pi * d * c));
-*/
+    vec3 nonDirectLight = skyLight + torchLight;
+    vec3 litColor = frag.albedo.rgb * (directLight + nonDirectLight);
+    
     return vec4(litColor, frag.albedo.a);
 }
 
@@ -132,7 +114,7 @@ void main() {
     Fragment frag = getFragment(texcoord.st);
     Lightmap lm = getLightmapSample(texcoord.st);
 
-    vec4 finalColor = calculateLighting(frag, lm, texcoord.st, 0.0);
+    vec4 finalColor = calculateLighting(frag, lm, texcoord.st);
     //finalColor = texture2D(colortex4, texcoord.st).rgb;
 
     //FragData0 = vec4(vec3(fract(worldPos.xz / worldPos.y), 0.0), 1.0);
