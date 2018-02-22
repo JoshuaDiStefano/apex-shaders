@@ -126,7 +126,7 @@ vec3 calcSky(in vec2 coord) {
     float distToHorizon = max(0.0, dot(view, up));    
     float timeInfluence = max(dot(view, lightVector), 0.0);
 
-    bool isStar = bool(float(noise.b > 0.985 || noise.r > 0.985));
+    bool isStar = false;//bool(float(noise.b > 0.985 || noise.r > 0.985));
 
     if (isStar && isNight == 1.0) {
         baseColor = vec3(1.0);
@@ -141,7 +141,7 @@ vec3 calcSky(in vec2 coord) {
         vec3 haloColorNight = vec3(1.0);
 
         vec3 dayColor = mix(horizonColorDay, mix(zenithColorDay, haloColorDay, pow(timeInfluence, 400.0) * 2.0), distToHorizon + (1.0 - distToHorizon) / 1.01);
-        vec3 nightColor = mix(zenithColorNight, haloColorNight, pow(timeInfluence, 1000.0) * 2.0);
+        vec3 nightColor = mix(zenithColorNight, haloColorNight, pow(timeInfluence, 2000.0) * 2.0);
         vec3 sunColor = vec3(0.9, 0.9, 0.4) * 5.0;
         vec3 moonColor = vec3(1.0) * 3.0;
 
@@ -153,7 +153,7 @@ vec3 calcSky(in vec2 coord) {
             baseColorBad = nightColor;
         }
 
-        if (timeInfluence > mix(0.999, 0.998, isNight)) {
+        if (timeInfluence > mix(0.999, 0.999, isNight)) {
             baseColor = mix(sunColor, moonColor, isNight);
         } else {
             baseColor = mix(dayColor, nightColor, isNight);
@@ -252,9 +252,9 @@ vec3 getShadowColor(in vec2 coord) {
     #else
         float penumbraSize = 0.5;
     #endif
-
-    int numSamples = 64;
     
+    int numSamples = 64;
+
     float shadowMapBias;
 
     mat2 rotationMatrix = getRotationMatrix(coord);
@@ -323,20 +323,22 @@ vec3 calculateLighting(in Fragment frag, in Lightmap lm, in vec2 coord, in bool 
         float nDotL = dot(frag.normal, lightVector);
         float uDotL = dot(normalize(upPosition), lightVector);  
 
-        float directLightStrength = max(0.0, nDotL);
+        float directLightStrength = max(0.0, mix(nDotL, uDotL, frag.emission));
+
         vec3 directLight = directLightStrength * lightColor;
+
+        vec3 skyLight = skyColor * lm.skyLightStrength;
 
         vec3 torchColor = vec3(0.85, 0.2, 0.05) * 0.025;
         vec3 torchLight = torchColor * lm.torchLightStrength;
-        vec3 skyLight = skyColor * lm.skyLightStrength;
 
-        vec3 shadowColor = getShadowColor(coord) + nonDirectLight;
-	
         vec3 nonDirectLight = skyLight + torchLight + 0.02;
-        vec3 litColor = frag.albedo * (directLight * shadowColor);
-	vec3 emissiveColor = frag.albedo * (uDotL * lightColor * shadowColor);
 
-        return mix(litColor, emissiveColor, frag.emission);
+        vec3 shadowColor = getShadowColor(coord);
+
+        vec3 litColor = frag.albedo * (directLight * shadowColor + nonDirectLight);
+
+        return litColor;
     } else {
         return frag.albedo;
     }
@@ -352,7 +354,7 @@ void main() {
 
     if (texture2D(depthtex0, texcoord.st) == vec4(1.0)) {
         finalColor = calcSky(texcoord.st);
-	
+        
         //finalColor = calculateLighting(frag, lm, texcoord.st, true);
         //finalColor = vec3(fract(worldPos.xz), 0.0);
         //finalColor = texture2D(noisetex, worldPos.xz / worldPos.y).rgb;
@@ -363,7 +365,6 @@ void main() {
     //FragData0 = vec4(vec3(fract(worldPos.xz / worldPos.y), 0.0), 1.0);
     //FragData0 = vec4(texture2D(gdepthtex, texcoord.st).rgb, 1.0);
     //FragData0 = vec4(vec3((getCameraDepthBuffer(texcoord.st)) / 50.0), 1.0);
-    
     FragData0 = vec4(finalColor, 1.0);
     FragData4 = vec4(0.0);
 }
