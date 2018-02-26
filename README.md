@@ -16,6 +16,10 @@ Version 1.1:
 
 *Fixed discoloration on transparent blocks
 
+*Fixed beacon beam
+
+*Fixed rain/snow
+
 ///
 
 -Removed/tweaked a few options
