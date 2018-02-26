@@ -4,11 +4,9 @@
 
 uniform   sampler2D     texture;
 uniform   sampler2D     normals;
-uniform   sampler2D     noisetex;
 
 varying   vec3          tintColor;
 varying   vec3          normalOut;
-varying   vec3          pos;
 
 varying   vec4          texcoord;
 varying   vec4          lmcoord;
@@ -35,6 +33,8 @@ void main() {
         //FragData0 = vec4(1.0);
     }
 
-    FragData1 = vec4(lmcoord.st / 16.0, isEmissive, 1.0);
+    vec2 lm = lmcoord.st / 16.0;
+
+    FragData1 = vec4(lm, isEmissive, 1.0);
     FragData2 = vec4(normalOut * 0.5 + 0.5, 1.0);
 }
