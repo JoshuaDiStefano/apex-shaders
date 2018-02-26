@@ -14,14 +14,6 @@ const     int           shadowMapResolution       = 2048;  // [1024 2048 4096]
 const     int           noiseTextureResolution    = 512;
 
 //#define   BAD_SKY
-#define   RANDOM_ROTATION
-//#define   RANDOM_ROTATION_FILTER
-
-#define   PCF_SAMPLE_COUNT                          2      // [1 2 3 4 5]
-#define   PCSS_SAMPLE_COUNT                         3      // [1 2 3 4 5]
-#define   MIN_PENUMBRA_SIZE                         0.25   // [0.0 0.1 0.25 0.5]
-#define   LIGHT_SIZE                                75    // [50 75 100 125 150]
-#define   PCSS
 
 uniform   int           worldTime;
 
@@ -32,7 +24,9 @@ uniform   sampler2D     noisetex;
 uniform   sampler2D     depthtex0;
 uniform   sampler2D     gdepthtex;
 uniform   sampler2D     shadow;
+uniform   sampler2D     watershadow;
 uniform   sampler2D     shadowtex0;
+uniform   sampler2D     shadowtex1;
 uniform   sampler2D     shadowcolor0;
 uniform   sampler2D     colortex4;
 
@@ -270,11 +264,18 @@ vec3 getShadowColor(in vec2 coord) {
 
         vec2 adjustedShadowCoord = shadowCoord.st + offset;
         
-        float shadowMapSample = texture2D(shadow, adjustedShadowCoord).r;
+        float shadowMapSample = texture2D(shadowtex1, adjustedShadowCoord).r;
         float visibility = step(shadowCoord.z - shadowMapSample, shadowMapBias);
+        
+        float shadowMapSampleTransparent = texture2D(watershadow, adjustedShadowCoord).r;
+        float transparentVisibility = step(shadowCoord.z - shadowMapSampleTransparent, shadowMapBias);
 
         vec3 colorSample = texture2D(shadowcolor0, adjustedShadowCoord).rgb;
-        shadowColor += mix(colorSample, vec3(1.0), visibility);
+
+        colorSample = mix(colorSample, vec3(1.0), transparentVisibility);
+        colorSample = mix(vec3(0.0), colorSample, visibility);
+
+        shadowColor += colorSample;
     }
 
     shadowColor /= numSamples;
@@ -332,7 +333,7 @@ vec3 calculateLighting(in Fragment frag, in Lightmap lm, in vec2 coord, in bool 
         vec3 torchColor = vec3(0.85, 0.2, 0.05) * 0.025;
         vec3 torchLight = torchColor * lm.torchLightStrength;
 
-        vec3 nonDirectLight = skyLight + torchLight + 0.02;
+        vec3 nonDirectLight = skyLight + torchLight + 0.01;
 
         vec3 shadowColor = getShadowColor(coord);
 
@@ -342,6 +343,17 @@ vec3 calculateLighting(in Fragment frag, in Lightmap lm, in vec2 coord, in bool 
     } else {
         return frag.albedo;
     }
+}
+
+void desat(inout vec3 color, in float strengthCoeff) {
+
+	float strength = 0.8f;
+	vec3 rodColor = vec3(0.2f, 0.4f, 1.0f);
+	float gray = dot(color, vec3(1.0f));
+
+	color = mix(color, vec3(gray) * rodColor, strengthCoeff * strength);
+    color *= 0.5;
+	//color.rgb = color.rgb;
 }
 
 void main() {
@@ -360,6 +372,10 @@ void main() {
         //finalColor = texture2D(noisetex, worldPos.xz / worldPos.y).rgb;
     } else {
         finalColor = calculateLighting(frag, lm, texcoord.st, false);
+    }
+
+    if (bool(isNight)) {
+        desat(finalColor.rgb, 1.0 - clamp(lm.torchLightStrength, 0.0, 1.0));
     }
 
     //FragData0 = vec4(vec3(fract(worldPos.xz / worldPos.y), 0.0), 1.0);
