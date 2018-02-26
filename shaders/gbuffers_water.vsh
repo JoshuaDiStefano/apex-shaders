@@ -19,7 +19,6 @@ uniform   mat4          gbufferProjection;
 varying   vec3          tintColor;
 varying   vec3          normal;
 varying   vec3          worldSpacePosition;
-varying   vec3          toCameraInTangentSpace;
 
 varying   vec4          texcoord;
 varying   vec4          lmcoord;
@@ -59,23 +58,4 @@ void main() {
     lmcoord = gl_MultiTexCoord1;
     tintColor = gl_Color.rgb;
     normal = normalize(gl_NormalMatrix * gl_Normal);
-
-    // PARALLAX
-        // transform to world space
-        vec4 worldPosition = gl_ModelViewMatrix * vec4(gl_Vertex.xyz, 1.0);
-        vec3 worldNormal = normal;
-        vec3 worldTangent = normalize(gl_NormalMatrix * at_tangent.xyz);
-
-        // calculate vectors to the camera
-        vec3 worldDirectionToCamera	= normalize(cameraPosition - worldPosition.xyz);
-
-        // calculate bitangent from normal and tangent
-        vec3 worldBitangnent = cross(worldNormal, worldTangent) * at_tangent.w;
-
-        // transform direction to the camera to tangent space
-        toCameraInTangentSpace = vec3(
-                dot(worldDirectionToCamera, worldTangent),
-                dot(worldDirectionToCamera, worldBitangnent),
-                dot(worldDirectionToCamera, worldNormal)
-            );
 }
