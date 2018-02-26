@@ -10,7 +10,6 @@ uniform   sampler2D     normals;
 
 varying   vec3          tintColor;
 varying   vec3          normalOut;
-varying   vec3          pos;
 
 varying   vec4          texcoord;
 varying   vec4          lmcoord;
