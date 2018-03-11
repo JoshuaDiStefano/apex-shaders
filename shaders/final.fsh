@@ -111,6 +111,17 @@ float getCameraDepthBuffer(in vec2 coord) {
     return length(pos) / v.w;
 }
 
+float getDofFactor(in float sample1, in float sample2) {
+    return abs(sample1 - sample2);
+}
+
+void weightSample(inout float tempSample, inout float tempFactor, inout float sampleCount, inout vec3 color, in vec2 temp, in float fragSample) {
+    tempSample = min(getCameraDepthBuffer(temp) / dofStrength, 1.0);
+    tempFactor = 1.0 - getDofFactor(tempSample, fragSample);
+    color += texture2D(gcolor, temp).rgb * tempFactor;
+    sampleCount += tempFactor;
+}
+
 void main() {
     #ifdef CINEMATIC_MODE
     float isBlack = float(texcoord.y <= 0.1 || texcoord.y >= 0.9);
@@ -123,66 +134,8 @@ void main() {
     if (isBlack == 0.0) {
         color = texture2D(gcolor, texcoord.st).rgb;
 
-        #ifdef DOF
-            vec2 res = vec2(viewWidth, viewHeight);
-
-            float midSample = min(getCameraDepthBuffer(vec2(0.5)) / dofStrength, 1.0);
-            float fragSample = min(getCameraDepthBuffer(texcoord.st) / dofStrength, 1.0);
-            float aspectratio = res.x/res.y;
-            float factor = max((abs(midSample - fragSample)), 0.0);
-
-            vec2 aspectcorrect = vec2(1.0,aspectratio);
-            vec2 dofBlur = vec2(clamp(factor * aperture, -blurclamp, blurclamp));
-
-            vec3 col = vec3(0.0);
-    
-            col += texture2D(gcolor, texcoord.st).rgb;
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.0,0.4 )*aspectcorrect) * dofBlur).rgb;
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.15,0.37 )*aspectcorrect) * dofBlur).rgb;
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.29,0.29 )*aspectcorrect) * dofBlur).rgb;
-            col += texture2D(gcolor, texcoord.st + (vec2( -0.37,0.15 )*aspectcorrect) * dofBlur).rgb;       
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.4,0.0 )*aspectcorrect) * dofBlur).rgb;   
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.37,-0.15 )*aspectcorrect) * dofBlur).rgb;       
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.29,-0.29 )*aspectcorrect) * dofBlur).rgb;       
-            col += texture2D(gcolor, texcoord.st + (vec2( -0.15,-0.37 )*aspectcorrect) * dofBlur).rgb;
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.0,-0.4 )*aspectcorrect) * dofBlur).rgb; 
-            col += texture2D(gcolor, texcoord.st + (vec2( -0.15,0.37 )*aspectcorrect) * dofBlur).rgb;
-            col += texture2D(gcolor, texcoord.st + (vec2( -0.29,0.29 )*aspectcorrect) * dofBlur).rgb;
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.37,0.15 )*aspectcorrect) * dofBlur).rgb; 
-            col += texture2D(gcolor, texcoord.st + (vec2( -0.4,0.0 )*aspectcorrect) * dofBlur).rgb; 
-            col += texture2D(gcolor, texcoord.st + (vec2( -0.37,-0.15 )*aspectcorrect) * dofBlur).rgb;       
-            col += texture2D(gcolor, texcoord.st + (vec2( -0.29,-0.29 )*aspectcorrect) * dofBlur).rgb;       
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.15,-0.37 )*aspectcorrect) * dofBlur).rgb;
-        
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.15,0.37 )*aspectcorrect) * dofBlur*0.9).rgb;
-            col += texture2D(gcolor, texcoord.st + (vec2( -0.37,0.15 )*aspectcorrect) * dofBlur*0.9).rgb;           
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.37,-0.15 )*aspectcorrect) * dofBlur*0.9).rgb;           
-            col += texture2D(gcolor, texcoord.st + (vec2( -0.15,-0.37 )*aspectcorrect) * dofBlur*0.9).rgb;
-            col += texture2D(gcolor, texcoord.st + (vec2( -0.15,0.37 )*aspectcorrect) * dofBlur*0.9).rgb;
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.37,0.15 )*aspectcorrect) * dofBlur*0.9).rgb;            
-            col += texture2D(gcolor, texcoord.st + (vec2( -0.37,-0.15 )*aspectcorrect) * dofBlur*0.9).rgb;   
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.15,-0.37 )*aspectcorrect) * dofBlur*0.9).rgb;   
-        
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.29,0.29 )*aspectcorrect) * dofBlur*0.7).rgb;
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.4,0.0 )*aspectcorrect) * dofBlur*0.7).rgb;       
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.29,-0.29 )*aspectcorrect) * dofBlur*0.7).rgb;   
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.0,-0.4 )*aspectcorrect) * dofBlur*0.7).rgb;     
-            col += texture2D(gcolor, texcoord.st + (vec2( -0.29,0.29 )*aspectcorrect) * dofBlur*0.7).rgb;
-            col += texture2D(gcolor, texcoord.st + (vec2( -0.4,0.0 )*aspectcorrect) * dofBlur*0.7).rgb;     
-            col += texture2D(gcolor, texcoord.st + (vec2( -0.29,-0.29 )*aspectcorrect) * dofBlur*0.7).rgb;   
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.0,0.4 )*aspectcorrect) * dofBlur*0.7).rgb;
-                            
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.29,0.29 )*aspectcorrect) * dofBlur*0.4).rgb;
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.4,0.0 )*aspectcorrect) * dofBlur*0.4).rgb;       
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.29,-0.29 )*aspectcorrect) * dofBlur*0.4).rgb;   
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.0,-0.4 )*aspectcorrect) * dofBlur*0.4).rgb;     
-            col += texture2D(gcolor, texcoord.st + (vec2( -0.29,0.29 )*aspectcorrect) * dofBlur*0.4).rgb;
-            col += texture2D(gcolor, texcoord.st + (vec2( -0.4,0.0 )*aspectcorrect) * dofBlur*0.4).rgb;     
-            col += texture2D(gcolor, texcoord.st + (vec2( -0.29,-0.29 )*aspectcorrect) * dofBlur*0.4).rgb;   
-            col += texture2D(gcolor, texcoord.st + (vec2( 0.0,0.4 )*aspectcorrect) * dofBlur*0.4).rgb;
-            
-            color = col / 41.0;
-        #endif
+        // DOF //
+        #include "/lib/dof.glsl"
         
         color = getExposure(color);
 
