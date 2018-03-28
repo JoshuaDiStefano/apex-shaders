@@ -1,7 +1,5 @@
 #version 120
 
-uniform   int           worldTime;
-
 uniform   vec3          shadowLightPosition;
 
 uniform   float         sunAngle;
