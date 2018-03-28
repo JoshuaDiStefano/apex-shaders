@@ -2,6 +2,22 @@
 
 CHANGELOG:
 
+Version 1.2:
+
++Optimization
+
++Much improved sky
+
++Waving blocks
+
+///
+
+*Fixed color on transparent blocks when not using transparent shadows
+
+///
+
+///
+
 Version 1.1:
 
 +Optimization
