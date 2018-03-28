@@ -18,7 +18,7 @@ uniform   mat4          gbufferProjection;
 
 varying   vec3          tintColor;
 varying   vec3          normal;
-varying   vec3          worldSpacePosition;
+varying   vec3          headPosition;
 
 varying   vec4          texcoord;
 varying   vec4          lmcoord;
@@ -27,8 +27,10 @@ varying   float         isWater;
 varying   float         isTransparent;
 varying   float         isNPortal;
 
-vec3 getWorldSpacePosition() {
-    return mat3(gbufferModelViewInverse) * transMAD(gl_ModelViewMatrix, gl_Vertex.xyz);
+vec3 getHeadPosition() {
+    vec3 temp = (gbufferModelViewInverse * (gl_ModelViewMatrix * gl_Vertex)).xyz;
+    temp.y -= 1.62;
+    return temp;
 }
 
 void main() {
@@ -52,7 +54,7 @@ void main() {
 
     #include "/lib/shakingCamera.glsl"
 
-    worldSpacePosition = getWorldSpacePosition();
+    headPosition = getHeadPosition();
 
     texcoord = gl_MultiTexCoord0;
     lmcoord = gl_MultiTexCoord1;
