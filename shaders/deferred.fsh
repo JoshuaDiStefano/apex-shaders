@@ -122,11 +122,11 @@ vec3 calcSky(in vec2 coord) {
     vec3 zenithColorNoon = vec3(0.01, 0.2, 1.0) * 5.0;
 
     vec3 horizonColorBottomMorning = vec3(0.9, 0.05, 0.0) * 0.1;
-    vec3 horizonColorTopMorning = vec3(0.9, 0.05, 0.0) * 1.0;
+    vec3 horizonColorTopMorning = vec3(0.1, 0.2, 0.5) * 0.1;
     vec3 zenithColorMorning = vec3(0.01, 0.2, 1.0) * 0.01;
 
     vec3 haloColorNoon = vec3(1.0, 1.0, 0.9) * 5.0;
-    vec3 sunColorNoon = vec3(1.0, 1.0, 0.5) * 10.0;
+    vec3 sunColorNoon = vec3(1.0, 1.0, 0.5) * 15.0;
 
     vec3 haloColorMorning = vec3(1.0, 0.05, 0.0) * 5.0;
     vec3 sunColorMorning = vec3(1.0, 0.05, 0.0) * 10.0;
@@ -137,6 +137,7 @@ vec3 calcSky(in vec2 coord) {
     vec3 black = vec3(0.0);
 
     float fallOff = mix(0.1, 0.35, timeFactor);
+
     float timeFallOffDay = 0.5;
     float timeFallOffNight = 0.15;
 
@@ -192,14 +193,14 @@ vec3 calcSky(in vec2 coord) {
         skyColor = mix(horizonColorTopFinal, zenithColorFinal, smoothstep(0.0, 1.0, distToHorizon * distanceCoeff - (distanceCoeff - 1.0)));
     }
 
-    skyColor += mix(skyColor, haloColorDay, pow(sunInfluence, 1500.0) * 2.0);
-    skyColor += mix(skyColor, haloColorNight, pow(moonInfluence, 1500.0) * 2.0);
+    skyColor += mix(skyColor, haloColorDay, pow(sunInfluence, 1000.0) * 2.0);
+    skyColor += mix(skyColor, haloColorNight, pow(moonInfluence, 3000.0) * 2.0);
 
-    if (sunInfluence > 0.9995) {
+    if (sunInfluence > 0.999) {
         skyColor = sunColorFinal;
     }
 
-    if (moonInfluence > 0.998) {
+    if (moonInfluence > 0.999) {
         skyColor = moonColor;
     }
 
