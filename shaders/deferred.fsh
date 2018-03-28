@@ -1,432 +1,153 @@
 #version 120
 
-#include "/lib/framebuffer.glsl"
-#include "/lib/poisson.glsl"
+//#define CINEMATIC_MODE
+#define   DOF
+#define   APERTURE                                  0.015 // [0.01 0.015 0.02 0.025 0.05 0.06 0.075 0.08 0.1 0.25 0.5] Bigger values for shallower depth of field
+#define   DOF_FALLOFF_STRENGTH                      2.5   // [1.5 2.5 5.0 7.5 10.0]
+#define   VIGNETTE
 
-uniform   sampler2D     colortex0;
-uniform   sampler2D     colortex1;
-uniform   sampler2D     colortex2;
+const     float         dofStrength               = DOF_FALLOFF_STRENGTH;
+const     float         GA                        = 2.399;
+const     float         blurclamp                 = 3.0;   // max blur amount
+const     float         aperture                  = APERTURE;
 
-const     float         sunPathRotation           = -22.5; // [-22.5 22.5]
-const     float         shadowDistance            = 128.0;
+const     mat2          rot                       = mat2(cos(GA),sin(GA),-sin(GA),cos(GA));
 
-const     int           shadowMapResolution       = 2048;  // [1024 2048 4096]
-const     int           noiseTextureResolution    = 512;
+varying   vec4          texcoord;
 
-//#define   BAD_SKY
-
-uniform   int           worldTime;
-
-uniform   vec3          upPosition;
-uniform   vec3          cameraPosition;
-uniform   vec3          sunPosition;
-
-uniform   sampler2D     noisetex;
-uniform   sampler2D     depthtex0;
-uniform   sampler2D     gdepthtex;
-uniform   sampler2D     shadow;
-uniform   sampler2D     watershadow;
-uniform   sampler2D     shadowtex0;
-uniform   sampler2D     shadowtex1;
-uniform   sampler2D     shadowcolor0;
-uniform   sampler2D     colortex4;
+uniform   sampler2D     gcolor;
+uniform   sampler2D     gdepth;
+uniform   sampler2D     depthtex1;
 
 uniform   mat4          gbufferProjectionInverse;
-uniform   mat4          gbufferModelViewInverse;
-
-uniform   mat4          shadowModelView;
-uniform   mat4          shadowProjection;
 
 uniform   float         viewHeight;
 uniform   float         viewWidth;
 
-varying   vec4          texcoord;
+void vignette(inout vec3 color) {
+    float dist = distance(texcoord.st, vec2(0.5)) * 2.0;
+    dist /= 1.5142f;
+    dist = pow(dist, 1.1);
 
-varying   vec3          lightVector;
-varying   vec3          lightColor;
-varying   vec3          skyColor;
-
-varying   float         isNight;
-
-vec3 getAlbedo(in vec2 coord) {
-    return pow(texture2D(colortex0, coord).rgb, vec3(2.2));
-    //return vec3(1.0, 1.0, 1.0);
+    color.rgb *= (1.0f - dist / 1.75);
 }
 
-vec4 getDepth(in vec2 coord) {
-  return texture2D(gdepthtex, coord);
+vec3 convertToHDR(in vec3 color) {
+    vec3 HDRImage;
+
+    vec3 overExposed = color * 1.0f;
+    vec3 underExposed = color / 1.25f;
+
+    HDRImage = mix(underExposed, overExposed, color);
+
+    return HDRImage;
 }
 
-vec3 getNormal(in vec2 coord) {
-    return texture2D(colortex2, coord).rgb * 2.0 - 1.0;
+vec3 getExposure(in vec3 color) {
+    vec3 retColor;
+    color *=  1.1;
+    retColor = color;
+
+    return retColor;
 }
 
-struct LightingParams {
-    float Emission;
-    float TorchLightStrength;
-    float SkyLightStrength;
-};
+vec3 reinhard(in vec3 color) {
+    color /= 1.0 + color;
 
-LightingParams getLightingParams(in vec2 coord) {
-    LightingParams lp;
-
-    vec3 ct1 = texture2D(colortex1, coord).rgb;
-
-    lp.Emission = ct1.b;
-    lp.TorchLightStrength = pow(ct1.r, 2.2);
-    lp.SkyLightStrength = ct1.g;
-
-    return lp;
+    return pow(color, vec3(1.0 / 2.2));
 }
 
-/* DRAWBUFFERS:01234 */
+vec3 burgess(in vec3 color) {
+    vec3 maxColor = max(vec3(0.0), color - 0.004);
+    vec3 retColor = (maxColor * (6.2 * maxColor + 0.05)) / (maxColor * (6.2 * maxColor + 2.7) + 0.05);
 
-vec4 getCameraSpacePositionSky(in vec2 coord) {
-  float depth = getDepth(coord).r;
-  vec4 positionNdcSpace = vec4(coord.s * 2.0 - 1.0, coord.t * 2.0 - 1.0, 2.0 * depth - 1.0, 1.0);
-  vec4 positionCameraSpace = normalize(gbufferProjectionInverse * positionNdcSpace);
-  
-  return positionCameraSpace / positionCameraSpace.w;
+    return retColor;
 }
 
-vec4 getWorldSpacePositionSky(in vec2 coord) {
-    vec4 tmp = gbufferProjectionInverse * vec4(coord * 2.0 - 1.0, 1.0, 1.0);
-    vec3 viewPos = tmp.xyz / tmp.w;
-    vec4 positionCameraSpace = vec4(viewPos, 1.0);
-    vec4 positionWorldSpace = gbufferModelViewInverse * vec4(positionCameraSpace);
-    //positionWorldSpace.xyz *= cameraPosition.xyz;
+float A = 0.15;
+float B = 0.50;
+float C = 0.10;
+float D = 0.20;
+float E = 0.02;
+float F = 0.30;
+float W = 11.2;
 
-    return positionWorldSpace;
+vec3 uncharted2Math(in vec3 x) {
+
+    return ((x * (A * x + C * B) + D * E) / (x * (A * x + B) + D * F)) - E / F;
+}
+
+vec3 uncharted2Tonemap(in vec3 color) {
+    vec3 retColor;
+    float exposureBias = 2.0;
+
+    vec3 cur = uncharted2Math(exposureBias * color);
+
+    vec3 whiteScale = vec3(1.0) / uncharted2Math(vec3(W));
+    retColor = cur * whiteScale;
+
+    return pow(retColor, vec3(1.0 / 2.2));
+}
+
+vec3 testTonemap(in vec3 color) {
+    vec3 retColor = color;
+
+    retColor *= retColor;
+    retColor = sqrt(retColor / (retColor + 1.0));
+
+    return pow(retColor, vec3(1.0 / 2.2));
+}
+
+void dither(inout vec3 color) {
+    vec3 lestynRGB = vec3(dot(vec2(171.0, 231.0), gl_FragCoord.xy));
+         lestynRGB = fract(lestynRGB.rgb / vec3(103.0, 71.0, 97.0));
+
+    color += lestynRGB.rgb / 255.0;
 }
 
 float getCameraDepthBuffer(in vec2 coord) {
-    vec3 pos = vec3(coord, texture2D(depthtex0, coord).r);
+    vec3 pos = vec3(coord, texture2D(depthtex1, coord).r);
     vec4 v = gbufferProjectionInverse * vec4(pos * 2.0 - 1.0, 1.0);
     return length(pos) / v.w;
 }
 
-vec3 calcSky(in vec2 coord) {
-    vec3 view = normalize(getCameraSpacePositionSky(coord).xyz);
-    vec3 up = normalize(upPosition);
-    
-    float distFromZenith = dot(view, up);
-    float distToHorizon = max(0.0, distFromZenith);
-    float sunInfluence = max(dot(view, normalize(sunPosition)), 0.0);
-    float moonInfluence = max(dot(view, normalize(-sunPosition)), 0.0);
-    float timeFactor = dot(lightVector, up);
-
-    vec3 skyColor;
-
-    vec3 horizonColorBottomNoon = vec3(0.3, 0.75, 1.0) * 5.0;
-    vec3 horizonColorTopNoon = vec3(0.01, 0.2, 1.0) * 5.0 + 0.25;
-    vec3 zenithColorNoon = vec3(0.01, 0.2, 1.0) * 5.0;
-
-    vec3 horizonColorBottomMorning = vec3(0.9, 0.05, 0.0) * 0.1;
-    vec3 horizonColorTopMorning = vec3(0.1, 0.2, 0.5) * 0.1;
-    vec3 zenithColorMorning = vec3(0.01, 0.2, 1.0) * 0.01;
-
-    vec3 haloColorNoon = vec3(1.0, 1.0, 0.9) * 5.0;
-    vec3 sunColorNoon = vec3(1.0, 1.0, 0.5) * 15.0;
-
-    vec3 haloColorMorning = vec3(1.0, 0.05, 0.0) * 5.0;
-    vec3 sunColorMorning = vec3(1.0, 0.05, 0.0) * 10.0;
-
-    vec3 haloColorNight = vec3(10.0);
-    vec3 moonColor = vec3(10.0);
-
-    vec3 black = vec3(0.0);
-
-    float fallOff = mix(0.1, 0.35, timeFactor);
-
-    float timeFallOffDay = 0.5;
-    float timeFallOffNight = 0.15;
-
-    float distanceCoeff = 1.0 / (1.0 - fallOff);
-
-    vec3 horizonColorBottomFinal;
-    vec3 horizonColorTopFinal;
-    vec3 zenithColorFinal;
-
-    vec3 haloColorDay;
-    vec3 sunColorFinal;
-
-    float factorMainDay = smoothstep(0.0, 1.0, timeFactor / timeFallOffDay);
-    float factorMainNight = smoothstep(0.0, 1.0, timeFactor / timeFallOffNight);
-
-    if (isNight < 0.9) {
-        if (timeFactor <= timeFallOffDay) {
-            horizonColorBottomFinal = mix(horizonColorBottomMorning, horizonColorBottomNoon, smoothstep(0.0, 2.5, timeFactor / timeFallOffDay));
-            horizonColorTopFinal = mix(horizonColorTopMorning, horizonColorTopNoon, smoothstep(0.0, 0.75, timeFactor / timeFallOffDay));
-            zenithColorFinal = mix(zenithColorMorning, zenithColorNoon, smoothstep(0.0, 2.0, timeFactor / timeFallOffDay));
-
-            haloColorDay = mix(haloColorMorning, haloColorNoon, factorMainDay);
-            sunColorFinal = mix(sunColorMorning, sunColorNoon, factorMainDay);
-        } else {
-            horizonColorBottomFinal = horizonColorBottomNoon;
-            horizonColorTopFinal = horizonColorTopNoon;
-            zenithColorFinal = zenithColorNoon;
-
-            haloColorDay = haloColorNoon;
-            sunColorFinal = sunColorNoon;
-        }
-    } else {
-        if (timeFactor <= timeFallOffNight) {
-            horizonColorBottomFinal = mix(horizonColorBottomMorning, black, factorMainNight);
-            horizonColorTopFinal = mix(horizonColorTopMorning, black, factorMainNight);
-            zenithColorFinal = mix(zenithColorMorning, black, factorMainNight);
-
-            haloColorDay = mix(haloColorMorning, black, factorMainNight);
-            sunColorFinal = mix(sunColorMorning, black, factorMainNight);
-        } else {
-            horizonColorBottomFinal = black;
-            horizonColorTopFinal = black;
-            zenithColorFinal = black;
-
-            haloColorDay = black;
-            sunColorFinal = black;
-        }
-    }
-
-    if (distToHorizon < fallOff) {
-        skyColor = mix(horizonColorBottomFinal, horizonColorTopFinal, smoothstep(0.0, 1.0, distToHorizon / fallOff));
-    } else {
-        skyColor = mix(horizonColorTopFinal, zenithColorFinal, smoothstep(0.0, 1.0, distToHorizon * distanceCoeff - (distanceCoeff - 1.0)));
-    }
-
-    skyColor += mix(skyColor, haloColorDay, pow(sunInfluence, 1000.0) * 2.0);
-    skyColor += mix(skyColor, haloColorNight, pow(moonInfluence, 3000.0) * 2.0);
-
-    if (sunInfluence > 0.999) {
-        skyColor = sunColorFinal;
-    }
-
-    if (moonInfluence > 0.999) {
-        skyColor = moonColor;
-    }
-
-    return skyColor;
+float getDofFactor(in float sample1, in float sample2) {
+    return abs(sample1 - sample2);
 }
 
-vec4 getCameraSpacePositionShadow(in vec2 coord) {
-    float depth = getDepth(coord).r;
-    vec4 positionNdcSpace = vec4(coord.s * 2.0 - 1.0, coord.t * 2.0 - 1.0, 2.0 * depth - 1.0, 1.0);
-    vec4 positionCameraSpace = gbufferProjectionInverse * positionNdcSpace;
-
-    return positionCameraSpace / positionCameraSpace.w;
-}
-
-vec4 getWorldSpacePositionShadow(in vec2 coord) {
-    vec4 positionCameraSpace = getCameraSpacePositionShadow(coord);
-    vec4 positionWorldSpace = gbufferModelViewInverse * positionCameraSpace;
-    positionWorldSpace.xyz += cameraPosition.xyz;
-
-    return positionWorldSpace;
-}
-
-vec3 getShadowSpacePosition(in vec2 coord) {
-    vec4 positionWorldSpace = getWorldSpacePositionShadow(coord);
-
-    positionWorldSpace.xyz -= cameraPosition;
-    vec4 positionShadowSpace = shadowModelView * positionWorldSpace;
-    positionShadowSpace = shadowProjection * positionShadowSpace;
-    positionShadowSpace /= positionShadowSpace.w;
-
-    float dist = sqrt(positionShadowSpace.x * positionShadowSpace.x + positionShadowSpace.y * positionShadowSpace.y);
-    float distortFactor = (1.0f - 0.85) + dist * 0.85;
-
-    positionShadowSpace.xy *= 1.0f / distortFactor;
-
-    return positionShadowSpace.xyz * 0.5 + 0.5;
-}
-
-mat2 getRotationMatrix(in vec2 coord) {
-    float angle = texture2D(
-        noisetex,
-        coord * vec2(
-            viewWidth / noiseTextureResolution,
-            viewHeight / noiseTextureResolution
-        )
-    ).r * (2.0 * 3.1415);
-
-    vec2 sc = vec2(sin(angle), cos(angle));
-    return mat2(
-        sc.y, -sc.x,
-        sc.x, sc.y
-    );
-}
-
-float getPenumbraWidth(in vec3 shadowCoord) {
-    float dFragment = shadowCoord.z; //distance from pixel to light
-    float dBlocker = 0.0; //distance from blocker to light
-    float penumbra = 0.0;
-    
-    float shadowMapSample; //duh
-    float numBlockers = 0.0;
-
-    float searchSize = LIGHT_SIZE / dFragment;
-
-    for (int x = -PCSS_SAMPLE_COUNT; x < PCSS_SAMPLE_COUNT; x++) {
-        for (int y = -PCSS_SAMPLE_COUNT; y < PCSS_SAMPLE_COUNT; y++) {
-            vec2 sampleCoord = shadowCoord.st + (vec2(x, y) * searchSize / (shadowMapResolution * 25 * PCSS_SAMPLE_COUNT));
-            shadowMapSample = texture2D(shadowtex0, sampleCoord, 2.0).r;
-
-            dBlocker += shadowMapSample;
-            numBlockers += 1.0;
-        }
-    }
-
-    if(numBlockers > 0.0) {
-		dBlocker /= numBlockers;
-		penumbra = (dFragment - dBlocker) * LIGHT_SIZE / dFragment;
-	}
-
-    return clamp(max(penumbra, MIN_PENUMBRA_SIZE), 0.0, 10.0);
-}
-
-vec3 getShadowColor(in vec2 coord) {
-    vec3 shadowCoord = getShadowSpacePosition(coord);
-    vec3 shadowColor = vec3(0.0);
-
-    #ifdef PCSS
-        float penumbraSize = getPenumbraWidth(shadowCoord);
-    #else
-        float penumbraSize = 0.5;
-    #endif
-    
-    int numSamples = 64;
-
-    float shadowMapBias;
-
-    mat2 rotationMatrix = getRotationMatrix(coord);
-
-    for (int i = 0; i < numSamples; i++) {
-        vec2 offset = disc64[i] / shadowMapResolution;
-        offset *= penumbraSize;
-        #ifdef RANDOM_ROTATION
-            offset = rotationMatrix * offset;
-        #endif
-
-        shadowMapBias = 0.0005 * (length(offset) + 0.75);
-
-        vec2 adjustedShadowCoord = shadowCoord.st + offset;
-        
-        float shadowMapSample = texture2D(shadowtex1, adjustedShadowCoord).r;
-        float visibility = step(shadowCoord.z - shadowMapSample, shadowMapBias);
-        
-        float shadowMapSampleTransparent = texture2D(watershadow, adjustedShadowCoord).r;
-        float transparentVisibility = step(shadowCoord.z - shadowMapSampleTransparent, shadowMapBias);
-
-        vec3 colorSample = texture2D(shadowcolor0, adjustedShadowCoord).rgb;
-
-        colorSample = mix(colorSample, vec3(1.0), transparentVisibility);
-        colorSample = mix(vec3(0.0), colorSample, visibility);
-
-        shadowColor += colorSample;
-    }
-
-    shadowColor /= numSamples;
-
-    return shadowColor * 0.111;
-}
-
-struct Fragment {
-    vec3 albedo;
-    vec4 albedo1;
-    vec3 normal;
-
-    float emission;
-};
-
-struct Lightmap {
-    float torchLightStrength;
-    float skyLightStrength;
-};
-
-Fragment getFragment(in vec2 coord) {
-    Fragment newFragment;
-
-    LightingParams lp = getLightingParams(coord);
-
-    newFragment.albedo = getAlbedo(coord);
-    newFragment.normal = getNormal(coord);
-    newFragment.emission = lp.Emission;
-
-    return newFragment;
-}
-
-Lightmap getLightmapSample(in vec2 coord) {
-    Lightmap lightmap;
-
-    LightingParams lp = getLightingParams(coord);
-
-    lightmap.torchLightStrength = lp.TorchLightStrength;
-    lightmap.skyLightStrength = lp.SkyLightStrength;
-
-    return lightmap;
-}
-
-vec3 calculateLighting(in Fragment frag, in Lightmap lm, in vec2 coord, in bool isSky) {
-    if (!isSky) {
-        float nDotL = dot(frag.normal, lightVector);
-        float uDotL = dot(normalize(upPosition), lightVector);  
-
-        float directLightStrength = max(0.0, mix(nDotL, uDotL, frag.emission));
-
-        vec3 directLight = directLightStrength * lightColor;
-
-        vec3 skyLight = skyColor * lm.skyLightStrength;
-
-        vec3 torchColor = vec3(0.85, 0.2, 0.05) * 0.025;
-        vec3 torchLight = torchColor * lm.torchLightStrength;
-
-        vec3 nonDirectLight = skyLight + torchLight + 0.01;
-
-        vec3 shadowColor = getShadowColor(coord);
-
-        vec3 litColor = frag.albedo * (directLight * shadowColor + nonDirectLight);
-
-        return litColor;
-    } else {
-        return frag.albedo;
-    }
-}
-
-void desat(inout vec3 color, in float strengthCoeff) {
-
-	float strength = 0.8f;
-	vec3 rodColor = vec3(0.2f, 0.4f, 1.0f);
-	float gray = dot(color, vec3(1.0f));
-
-	color = mix(color, vec3(gray) * rodColor, strengthCoeff * strength);
-    color *= 0.5;
-	//color.rgb = color.rgb;
+void weightSample(inout float tempSample, inout float tempFactor, inout float sampleCount, inout vec3 color, in vec2 temp, in float fragSample) {
+    tempSample = min(getCameraDepthBuffer(temp) / dofStrength, 1.0);
+    tempFactor = 1.0 - getDofFactor(tempSample, fragSample);
+    color += texture2D(gcolor, temp).rgb * tempFactor;
+    sampleCount += tempFactor;
 }
 
 void main() {
-    //vec4 worldPos = normalize(getWorldSpacePositionSky(texcoord.st));
+    #ifdef CINEMATIC_MODE
+    float isBlack = float(texcoord.y <= 0.1 || texcoord.y >= 0.9);
+    #else
+    float isBlack = 0.0;
+    #endif
 
-    Fragment frag = getFragment(texcoord.st);
-    Lightmap lm = getLightmapSample(texcoord.st);
+    vec3 color = vec3(0.0);
 
-    vec3 finalColor;
+    if (isBlack == 0.0) {
+        color = texture2D(gcolor, texcoord.st).rgb;
 
-    if (texture2D(depthtex0, texcoord.st) == vec4(1.0)) {
-        finalColor = calcSky(texcoord.st);
+        // DOF //
+        #include "/lib/dof.glsl"
         
-        //finalColor = calculateLighting(frag, lm, texcoord.st, true);
-        //finalColor = vec3(fract(worldPos.xz), 0.0);
-        //finalColor = texture2D(noisetex, worldPos.xz / worldPos.y).rgb;
+        color = getExposure(color);
+
+        #ifdef VIGNETTE
+            vignette(color);
+        #endif
+
+        color = reinhard(color);
+        dither(color);
     } else {
-        finalColor = calculateLighting(frag, lm, texcoord.st, false);
+        color = vec3(0.0);
     }
 
-    if (bool(isNight)) {
-        desat(finalColor.rgb, 1.0 - clamp(lm.torchLightStrength, 0.0, 1.0));
-    }
-
-    //FragData0 = vec4(vec3(fract(worldPos.xz / worldPos.y), 0.0), 1.0);
-    //FragData0 = vec4(texture2D(gdepthtex, texcoord.st).rgb, 1.0);
-    //FragData0 = vec4(vec3((getCameraDepthBuffer(texcoord.st)) / 50.0), 1.0);
-    FragData0 = vec4(finalColor, 1.0);
-    FragData4 = vec4(0.0);
+    gl_FragColor = vec4(color.rgb, 1.0);
 }
