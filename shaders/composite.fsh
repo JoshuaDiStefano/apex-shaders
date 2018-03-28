@@ -252,7 +252,7 @@ vec4 calculateLighting(in Fragment frag, in Lightmap lm, in vec2 coord) {
     #ifdef TRANSPARENTS_SHADOWS
         shadowColor = getShadowColor(coord);
     #else
-        shadowColor = vec3(1.0);
+        shadowColor = vec3(0.1);
     #endif
 
     vec3 litColor = frag.albedo.rgb * (directLight * shadowColor + nonDirectLight);
