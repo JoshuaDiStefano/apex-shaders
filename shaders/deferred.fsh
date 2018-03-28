@@ -317,7 +317,7 @@ vec3 getShadowColor(in vec2 coord) {
     #ifdef PCSS
         float penumbraSize = getPenumbraWidth(shadowCoord);
     #else
-        float penumbraSize = 0.5;
+        float penumbraSize = 1.0;
     #endif
     
     int numSamples = 64;
