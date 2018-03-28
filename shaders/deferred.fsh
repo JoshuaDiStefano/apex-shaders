@@ -19,6 +19,7 @@ uniform   int           worldTime;
 
 uniform   vec3          upPosition;
 uniform   vec3          cameraPosition;
+uniform   vec3          sunPosition;
 
 uniform   sampler2D     noisetex;
 uniform   sampler2D     depthtex0;
@@ -105,60 +106,104 @@ float getCameraDepthBuffer(in vec2 coord) {
 }
 
 vec3 calcSky(in vec2 coord) {
-    vec3 worldPos = getWorldSpacePositionSky(coord).xyz;
-
-    vec3 tmp2 = normalize(worldPos);
-    vec2 noisePos = tmp2.xz / tmp2.y;
-
     vec3 view = normalize(getCameraSpacePositionSky(coord).xyz);
     vec3 up = normalize(upPosition);
-    vec3 noise = texture2D(noisetex, noisePos).rgb;
     
-    vec3 baseColor;
-    vec3 baseColorBad;
-    
-    float distToHorizon = max(0.0, dot(view, up));    
-    float timeInfluence = max(dot(view, lightVector), 0.0);
+    float distFromZenith = dot(view, up);
+    float distToHorizon = max(0.0, distFromZenith);
+    float sunInfluence = max(dot(view, normalize(sunPosition)), 0.0);
+    float moonInfluence = max(dot(view, normalize(-sunPosition)), 0.0);
+    float timeFactor = dot(lightVector, up);
 
-    bool isStar = false;//bool(float(noise.b > 0.985 || noise.r > 0.985));
+    vec3 skyColor;
 
-    if (isStar && isNight == 1.0) {
-        baseColor = vec3(1.0);
-        baseColorBad = vec3(1.0) * (1.0 - timeInfluence);
-    } else {
-        vec3 horizonColorDay = vec3(0.75, 1.25, 2.0) * 65.0;
-        vec3 zenithColorDay = vec3(0.15, 0.75, 1.5) * 0.5;
-        vec3 haloColorDay = vec3(1.0, 1.0, 0.9) * 1.5;
+    vec3 horizonColorBottomNoon = vec3(0.3, 0.75, 1.0) * 5.0;
+    vec3 horizonColorTopNoon = vec3(0.01, 0.2, 1.0) * 5.0 + 0.25;
+    vec3 zenithColorNoon = vec3(0.01, 0.2, 1.0) * 5.0;
 
-        vec3 horizonColorNight = vec3(0.15, 0.5, 1.0);
-        vec3 zenithColorNight = vec3(0.0);
-        vec3 haloColorNight = vec3(1.0);
+    vec3 horizonColorBottomMorning = vec3(0.9, 0.05, 0.0) * 0.1;
+    vec3 horizonColorTopMorning = vec3(0.9, 0.05, 0.0) * 1.0;
+    vec3 zenithColorMorning = vec3(0.01, 0.2, 1.0) * 0.01;
 
-        vec3 dayColor = mix(horizonColorDay, mix(zenithColorDay, haloColorDay, pow(timeInfluence, 400.0) * 2.0), distToHorizon + (1.0 - distToHorizon) / 1.01);
-        vec3 nightColor = mix(zenithColorNight, haloColorNight, pow(timeInfluence, 2000.0) * 2.0);
-        vec3 sunColor = vec3(0.9, 0.9, 0.4) * 5.0;
-        vec3 moonColor = vec3(1.0) * 3.0;
+    vec3 haloColorNoon = vec3(1.0, 1.0, 0.9) * 5.0;
+    vec3 sunColorNoon = vec3(1.0, 1.0, 0.5) * 10.0;
 
-        vec3 skyColor = mix(dayColor, nightColor, -timeInfluence);
-    
-        if (timeInfluence > 0.0) {
-            baseColorBad = dayColor;
+    vec3 haloColorMorning = vec3(1.0, 0.05, 0.0) * 5.0;
+    vec3 sunColorMorning = vec3(1.0, 0.05, 0.0) * 10.0;
+
+    vec3 haloColorNight = vec3(10.0);
+    vec3 moonColor = vec3(10.0);
+
+    vec3 black = vec3(0.0);
+
+    float fallOff = mix(0.1, 0.35, timeFactor);
+    float timeFallOffDay = 0.5;
+    float timeFallOffNight = 0.15;
+
+    float distanceCoeff = 1.0 / (1.0 - fallOff);
+
+    vec3 horizonColorBottomFinal;
+    vec3 horizonColorTopFinal;
+    vec3 zenithColorFinal;
+
+    vec3 haloColorDay;
+    vec3 sunColorFinal;
+
+    float factorMainDay = smoothstep(0.0, 1.0, timeFactor / timeFallOffDay);
+    float factorMainNight = smoothstep(0.0, 1.0, timeFactor / timeFallOffNight);
+
+    if (isNight < 0.9) {
+        if (timeFactor <= timeFallOffDay) {
+            horizonColorBottomFinal = mix(horizonColorBottomMorning, horizonColorBottomNoon, smoothstep(0.0, 2.5, timeFactor / timeFallOffDay));
+            horizonColorTopFinal = mix(horizonColorTopMorning, horizonColorTopNoon, smoothstep(0.0, 0.75, timeFactor / timeFallOffDay));
+            zenithColorFinal = mix(zenithColorMorning, zenithColorNoon, smoothstep(0.0, 2.0, timeFactor / timeFallOffDay));
+
+            haloColorDay = mix(haloColorMorning, haloColorNoon, factorMainDay);
+            sunColorFinal = mix(sunColorMorning, sunColorNoon, factorMainDay);
         } else {
-            baseColorBad = nightColor;
+            horizonColorBottomFinal = horizonColorBottomNoon;
+            horizonColorTopFinal = horizonColorTopNoon;
+            zenithColorFinal = zenithColorNoon;
+
+            haloColorDay = haloColorNoon;
+            sunColorFinal = sunColorNoon;
         }
+    } else {
+        if (timeFactor <= timeFallOffNight) {
+            horizonColorBottomFinal = mix(horizonColorBottomMorning, black, factorMainNight);
+            horizonColorTopFinal = mix(horizonColorTopMorning, black, factorMainNight);
+            zenithColorFinal = mix(zenithColorMorning, black, factorMainNight);
 
-        if (timeInfluence > mix(0.999, 0.999, isNight)) {
-            baseColor = mix(sunColor, moonColor, isNight);
+            haloColorDay = mix(haloColorMorning, black, factorMainNight);
+            sunColorFinal = mix(sunColorMorning, black, factorMainNight);
         } else {
-            baseColor = mix(dayColor, nightColor, isNight);
+            horizonColorBottomFinal = black;
+            horizonColorTopFinal = black;
+            zenithColorFinal = black;
+
+            haloColorDay = black;
+            sunColorFinal = black;
         }
     }
-    
-    #ifdef BAD_SKY
-        return baseColorBad;
-    #else
-        return baseColor;
-    #endif
+
+    if (distToHorizon < fallOff) {
+        skyColor = mix(horizonColorBottomFinal, horizonColorTopFinal, smoothstep(0.0, 1.0, distToHorizon / fallOff));
+    } else {
+        skyColor = mix(horizonColorTopFinal, zenithColorFinal, smoothstep(0.0, 1.0, distToHorizon * distanceCoeff - (distanceCoeff - 1.0)));
+    }
+
+    skyColor += mix(skyColor, haloColorDay, pow(sunInfluence, 1500.0) * 2.0);
+    skyColor += mix(skyColor, haloColorNight, pow(moonInfluence, 6250.0) * 2.0);
+
+    if (sunInfluence > 0.9995) {
+        skyColor = sunColorFinal;
+    }
+
+    if (moonInfluence > 0.9995) {
+        skyColor = moonColor;
+    }
+
+    return skyColor;
 }
 
 vec4 getCameraSpacePositionShadow(in vec2 coord) {
