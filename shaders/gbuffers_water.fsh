@@ -14,7 +14,7 @@ uniform   float         frameTimeCounter;
 
 varying   vec3          tintColor;
 varying   vec3          normal;
-varying   vec3          worldSpacePosition;
+varying   vec3          headPosition;
 
 varying   vec4          texcoord;
 varying   vec4          lmcoord;
@@ -29,11 +29,11 @@ void main() {
     if (isWater > 0.9) {
         waterColor.rgb *= vec3(0.0, 0.375, 0.5625); //(0.0, 0.25, 0.375) * 1.5;
 
-        float dist = length(worldSpacePosition);
+        float dist = length(headPosition);
 
-        if (dist <= 1.5) {
-            vec3 color = vec3(sin(frameTimeCounter * 7.5 - distance(texcoord.st, worldSpacePosition.xz + 0.5)));
-            waterColor.rgb = mix(waterColor.rgb * (color + 5.0), waterColor.rgb, dist / 1.5);
+        if (dist <= 1.62) {
+            vec3 color = vec3(sin(frameTimeCounter * 7.5 - distance(texcoord.st, headPosition.xz + 0.5)));
+            waterColor.rgb = mix(waterColor.rgb * (color + 5.0), waterColor.rgb, dist / 1.62);
         }
 
     } else {
