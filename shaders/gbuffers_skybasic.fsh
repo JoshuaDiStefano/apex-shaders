@@ -12,14 +12,6 @@ varying   vec4          lmcoord;
 
 /* DRAWBUFFERS:0 */
 
-void main() {
-    //vec4 color = texture2D(gcolor, texcoord.st);
-    vec4 color;
-    color.rgb = tintColor;
-
-    #ifdef CLAY
-        color.rgb = tintColor;
-    #endif
-    
-    FragData0 = vec4(color.rgb, 1.0);
+void main() {    
+    FragData0 = vec4(1.0);
 }
