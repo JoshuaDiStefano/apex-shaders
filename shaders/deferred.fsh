@@ -193,13 +193,13 @@ vec3 calcSky(in vec2 coord) {
     }
 
     skyColor += mix(skyColor, haloColorDay, pow(sunInfluence, 1500.0) * 2.0);
-    skyColor += mix(skyColor, haloColorNight, pow(moonInfluence, 6250.0) * 2.0);
+    skyColor += mix(skyColor, haloColorNight, pow(moonInfluence, 1500.0) * 2.0);
 
     if (sunInfluence > 0.9995) {
         skyColor = sunColorFinal;
     }
 
-    if (moonInfluence > 0.9995) {
+    if (moonInfluence > 0.998) {
         skyColor = moonColor;
     }
 
