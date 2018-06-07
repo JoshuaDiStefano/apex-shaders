@@ -4,6 +4,9 @@
 #include "/lib/poisson.glsl"
 #include "/lib/math.glsl"
 
+#define rayleighCoeff (vec3(0.27, 0.5, 1.0) * 1e-5)
+#define mieCoeff vec3(0.5e-6)
+
 uniform   sampler2D     colortex0;
 uniform   sampler2D     colortex1;
 uniform   sampler2D     colortex2;
@@ -83,11 +86,11 @@ LightingParams getLightingParams(in vec2 coord) {
 /* DRAWBUFFERS:01234 */
 
 vec4 getCameraSpacePositionSky(in vec2 coord) {
-  float depth = getDepth(coord).r;
-  vec4 positionNdcSpace = vec4(coord.s * 2.0 - 1.0, coord.t * 2.0 - 1.0, 2.0 * depth - 1.0, 1.0);
-  vec4 positionCameraSpace = normalize(gbufferProjectionInverse * positionNdcSpace);
+    float depth = getDepth(coord).r;
+    vec4 positionNdcSpace = vec4(coord.s * 2.0 - 1.0, coord.t * 2.0 - 1.0, 2.0 * depth - 1.0, 1.0);
+    vec4 positionCameraSpace = normalize(gbufferProjectionInverse * positionNdcSpace);
   
-  return positionCameraSpace / positionCameraSpace.w;
+    return positionCameraSpace / positionCameraSpace.w;
 }
 
 vec4 getWorldSpacePositionSky(in vec2 coord) {
@@ -107,7 +110,7 @@ float getCameraDepthBuffer(in vec2 coord) {
 }
 
 float generateStars(vec3 worldVector) { //          CREDIT TO ROBOBO1221 - Used with permission
-    const float res = 256.0;
+    const float res = 200.0;
 
     vec3 p = worldVector * res;
     vec3 id = floor(p);
@@ -132,12 +135,12 @@ vec3 calcSky(in vec2 coord) {
 
     vec3 skyColor;
 
+    vec3 horizonColorTopNoon = vec3(0.01, 0.2, 1.0) * 5.0 + 0.05;
     vec3 horizonColorBottomNoon = vec3(0.3, 0.75, 1.0) * 5.0;
-    vec3 horizonColorTopNoon = vec3(0.01, 0.2, 1.0) * 5.0 + 0.25;
     vec3 zenithColorNoon = vec3(0.01, 0.2, 1.0) * 5.0;
 
-    vec3 horizonColorBottomMorning = vec3(0.9, 0.05, 0.0) * 0.1;
     vec3 horizonColorTopMorning = vec3(0.1, 0.2, 0.5) * 0.1;
+    vec3 horizonColorBottomMorning = mix(vec3(0.9, 0.075, 0.0) * 0.1, horizonColorTopMorning, max((1.0 - sunInfluence) / 1.1, 0.0));
     vec3 zenithColorMorning = vec3(0.01, 0.2, 1.0) * 0.01;
 
     vec3 haloColorNoon = vec3(1.0, 1.0, 0.9) * 5.0;
@@ -171,6 +174,8 @@ vec3 calcSky(in vec2 coord) {
 
     float factorMainDay = smoothstep(0.0, 1.0, timeFactor / timeFallOffDay);
     float factorMainNight = 1.0 - smoothstep(0.0, 1.0, timeFactor / timeFallOffNight);
+
+    float balanceCoeff = 0.5;
 
     if (isNight < 0.9) {
         if (timeFactor <= timeFallOffDay) {
@@ -213,15 +218,15 @@ vec3 calcSky(in vec2 coord) {
     }
 
     if (distToHorizon < fallOff) {
-        skyColor = mix(horizonColorBottomFinal, horizonColorTopFinal, smoothstep(0.0, 1.0, distToHorizon / fallOff));
+        skyColor = mix(horizonColorBottomFinal, horizonColorTopFinal, smoothstep(0.0, 1.0, distToHorizon / fallOff)) * balanceCoeff;
     } else {
-        skyColor = mix(horizonColorTopFinal, zenithColorFinal, smoothstep(0.0, 1.0, distToHorizon * distanceCoeff - fract(distanceCoeff)));
+        skyColor = mix(horizonColorTopFinal, zenithColorFinal, smoothstep(0.0, 1.0, distToHorizon * distanceCoeff - fract(distanceCoeff))) * balanceCoeff;
     }
 
-    skyColor += mix(skyColor, haloColorDay, pow(sunInfluence, 1000.0) * 2.0);
+    skyColor += mix(skyColor, haloColorDay, pow(sunInfluence, 1500.0) * 1.0);
     skyColor += mix(skyColor, haloColorNight, pow(moonInfluence, 3000.0) * 2.0);
 
-    if (sunInfluence > 0.999) {
+    if (sunInfluence > 1.0) {
         skyColor = sunColorFinal;
     }
 
@@ -358,7 +363,6 @@ vec3 getShadowColor(in vec2 coord) {
 
 struct Fragment {
     vec3 albedo;
-    vec4 albedo1;
     vec3 normal;
 
     float emission;
@@ -392,37 +396,49 @@ Lightmap getLightmapSample(in vec2 coord) {
     return lightmap;
 }
 
-vec3 calculateLighting(in Fragment frag, in Lightmap lm, in vec2 coord, in bool isSky) {
-    if (!isSky) {
-        float nDotL = dot(frag.normal, lightVector);
-        float uDotL = dot(normalize(upPosition), lightVector);  
+float OrenNayar(vec3 viewVec, vec3 lightVec, vec3 normal, float roughness) {
+    roughness *= roughness;
+    
+    float NdotL = dot(normal,lightVec);
+    float NdotV = dot(normal,viewVec);
+    
+    float t = max(NdotL,NdotV);
+    float g = max(.0, dot(viewVec - normal * NdotV, lightVec - normal * NdotL));
+    float c = g / t - g * t;
+    
+    float a = 0.285 / (roughness + 0.57) + 0.5;
+    float b = 0.45 * roughness / (roughness + 0.09);
 
-        float directLightStrength = max(0.0, mix(nDotL, uDotL, frag.emission));
+    return max(0., NdotL) * ( b * c + a);
+}
 
-        vec3 directLight = directLightStrength * lightColor;
+vec3 calculateLighting(in Fragment frag, in Lightmap lm, in vec2 coord) {
+    float notNdotL = OrenNayar(-normalize(getCameraSpacePositionShadow(texcoord.st).xyz), lightVector, frag.normal, 0.5);
+    float UdotL = dot(normalize(upPosition), lightVector);
 
-        vec3 skyLight = skyColor * lm.skyLightStrength;
+    float directLightStrength = max(0.0, mix(notNdotL, UdotL, frag.emission));
 
-        vec3 torchColor = vec3(0.85, 0.2, 0.05) * 0.025;
-        vec3 torchLight = torchColor * lm.torchLightStrength;
+    vec3 directLight = directLightStrength * lightColor;
 
-        vec3 nonDirectLight = skyLight + torchLight + 0.01;
+    vec3 skyLight = skyColor * lm.skyLightStrength;
 
-        vec3 shadowColor = getShadowColor(coord);
+    vec3 torchColor = vec3(0.85, 0.5, 0.15) * 5.0;
+    vec3 torchLight = torchColor * lm.torchLightStrength;
 
-        vec3 litColor = frag.albedo * (directLight * shadowColor + nonDirectLight);
+    vec3 nonDirectLight = skyLight + torchLight + 0.1;
 
-        return litColor;
-    } else {
-        return frag.albedo;
-    }
+    vec3 shadowColor = getShadowColor(coord);
+
+    vec3 litColor = frag.albedo * (directLight * shadowColor + nonDirectLight);
+
+    return litColor;
 }
 
 void desat(inout vec3 color, in float strengthCoeff) {
 
-	float strength = 0.8f;
-	vec3 rodColor = vec3(0.2f, 0.4f, 1.0f);
-	float gray = dot(color, vec3(1.0f));
+	float strength = 1.0;
+	vec3 rodColor = vec3(0.2, 0.4, 1.0);
+	float gray = dot(color, vec3(1.0));
 
 	color = mix(color, vec3(gray) * rodColor, strengthCoeff * strength);
     color *= 0.5;
@@ -444,11 +460,11 @@ void main() {
         //finalColor = vec3(fract(worldPos.xz), 0.0);
         //finalColor = texture2D(noisetex, worldPos.xz / worldPos.y).rgb;
     } else {
-        finalColor = calculateLighting(frag, lm, texcoord.st, false);
-    }
+        finalColor = calculateLighting(frag, lm, texcoord.st);
 
-    if (bool(isNight)) {
-        desat(finalColor.rgb, 1.0 - clamp(lm.torchLightStrength, 0.0, 1.0));
+        if (bool(isNight)) {
+            desat(finalColor.rgb, pow((1.0 - lm.torchLightStrength), 5.0));
+        }
     }
 
     //FragData0 = vec4(vec3(fract(worldPos.xz / worldPos.y), 0.0), 1.0);
