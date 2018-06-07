@@ -2,6 +2,7 @@
 
 const     float         sunPathRotation           = -22.5; // [-22.5 22.5]
 const     float         shadowDistance            = 128.0;
+const     float      	centerDepthHalflife       = 2.0f;  // [0.0f 0.2f 0.4f 0.6f 0.8f 1.0f 1.2f 1.4f 1.6f 1.8f 2.0f] Transition speed for focus.
 
 const     int           shadowMapResolution       = 2048;  // [1024 2048 4096]
 const     int           noiseTextureResolution    = 512;
@@ -10,7 +11,9 @@ const     int           noiseTextureResolution    = 512;
 #include "/lib/math.glsl"
 #include "/lib/poisson.glsl"
 
-#define TRANSPARENTS_SHADOWS
+#define   TRANSPARENTS_SHADOWS
+#define   ROUGHNESS                                 0.0
+#define   SPECULAR_FALLOFF                          750
 
 uniform   mat4          gbufferModelViewInverse;
 uniform   mat4          gbufferProjectionInverse;
@@ -41,6 +44,7 @@ varying   vec4          texcoord;
 varying   vec3          lightVector;
 varying   vec3          lightColor;
 varying   vec3          skyColor;
+//varying   vec3          cameraVector;
 
 varying   float         isNight;
 
@@ -168,7 +172,7 @@ vec3 getShadowColor(in vec2 coord) {
 
     mat2 rotationMatrix = getRotationMatrix(coord);
 
-    for (int i = 0; i < numSamples; i++) {
+    for (int i = 0; i < numSamples; i+=2) {
         vec2 offset = disc64[i] / shadowMapResolution;
         offset *= penumbraSize;
         #ifdef RANDOM_ROTATION
@@ -233,11 +237,34 @@ Lightmap getLightmapSample(in vec2 coord) {
     return lightmap;
 }
 
-vec4 calculateLighting(in Fragment frag, in Lightmap lm, in vec2 coord) {
-    float nDotL = dot(frag.normal, lightVector);
-    float uDotL = dot(normalize(upPosition), lightVector);
+float OrenNayar(vec3 viewVec, vec3 lightVec, vec3 normal, float roughness) {
+    roughness *= roughness;
+    
+    float NdotL = dot(normal,lightVec);
+    float NdotV = dot(normal,viewVec);
+    
+    float t = max(NdotL,NdotV);
+    float g = max(.0, dot(viewVec - normal * NdotV, lightVec - normal * NdotL));
+    float c = g / t - g * t;
+    
+    float a = 0.285 / (roughness + 0.57) + 0.5;
+    float b = 0.45 * roughness / (roughness + 0.09);
 
-    float directLightStrength = nDotL;
+    return max(0., NdotL) * ( b * c + a);
+}
+
+vec4 calculateLighting(in Fragment frag, in Lightmap lm, in vec2 coord) {
+    float notNdotL = OrenNayar(-normalize(getCameraSpacePositionShadow(texcoord.st).xyz), lightVector, frag.normal, 0.5);
+
+    vec3 lightDirection = -lightVector;
+    vec3 specularVector = reflect(lightDirection, frag.normal);
+
+    float specularFactor = max(dot(specularVector, -normalize(getCameraSpacePositionShadow(texcoord.st).xyz)), 0.0);
+    float specularIntensity = pow(specularFactor, SPECULAR_FALLOFF) * 0.325;
+
+    vec3 specularColor = specularIntensity * lightColor * (1.0 - ROUGHNESS);
+
+    float directLightStrength = notNdotL;
     directLightStrength = max(0.0, directLightStrength);
     vec3 directLight = directLightStrength * lightColor;
 
@@ -255,7 +282,7 @@ vec4 calculateLighting(in Fragment frag, in Lightmap lm, in vec2 coord) {
         shadowColor = vec3(0.1);
     #endif
 
-    vec3 litColor = frag.albedo.rgb * (directLight * shadowColor + nonDirectLight);
+    vec3 litColor = frag.albedo.rgb * (directLight * shadowColor + nonDirectLight) + specularColor * shadowColor * 25.0;
 
     return vec4(litColor, frag.albedo.a);
 }
@@ -281,7 +308,7 @@ void main() {
     //finalColor = texture2D(colortex4, texcoord.st).rgb;
 
     if (bool(isNight)) {
-        desat(finalColor.rgb, 1.0 - clamp(lm.torchLightStrength, 0.0, 1.0));
+        desat(finalColor.rgb, (1.0 - lm.torchLightStrength * 1.5) / 5.0);
     }
 
     //FragData0 = vec4(vec3(fract(worldPos.xz / worldPos.y), 0.0), 1.0);
