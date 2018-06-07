@@ -2,6 +2,21 @@
 
 CHANGELOG:
 
+Version 1.3:
+
++Specular (more or less)
+
++Bloom (finally)
+
+///
+
+*Fixed desaturation affecting lit areas
+*Tweaked sky colors sligthly
+
+///
+
+///
+
 Version 1.2:
 
 +Optimization
