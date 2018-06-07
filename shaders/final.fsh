@@ -1,28 +1,37 @@
 #version 120
 
+#define MC_GL_ARB_shader_texture_lod
+
 //#define CINEMATIC_MODE
+#define   BLOOM
 #define   DOF
-#define   APERTURE                                  0.015 // [0.01 0.015 0.02 0.025 0.05 0.06 0.075 0.08 0.1 0.25 0.5] Bigger values for shallower depth of field
-#define   DOF_FALLOFF_STRENGTH                      2.5   // [1.5 2.5 5.0 7.5 10.0]
+#define   APERTURE                                  0.015 // [0.01 0.015 0.02 0.025 0.05 0.06 0.075 0.08 0.1 0.15 0.2 0.25 0.5] Bigger values for shallower depth of field
+#define   DOF_FALLOFF_STRENGTH                      2.5   // [1.5 2.0 2.5 3.0 3.5 4.0 4.5 5.0 5.5 6.0 6.5 7.0 7.5 8.0 8.5 9.0 9.5 10.0]
+//#define   TILT_SHIFT
 #define   VIGNETTE
 
 const     float         dofStrength               = DOF_FALLOFF_STRENGTH;
 const     float         GA                        = 2.399;
 const     float         blurclamp                 = 3.0;   // max blur amount
 const     float         aperture                  = APERTURE;
+const     float      	centerDepthHalflife       = 2.0f;  // [0.0f 0.2f 0.4f 0.6f 0.8f 1.0f 1.2f 1.4f 1.6f 1.8f 2.0f] Transition speed for focus.
 
 const     mat2          rot                       = mat2(cos(GA),sin(GA),-sin(GA),cos(GA));
 
-varying   vec4          texcoord;
-
-uniform   sampler2D     gcolor;
+uniform   sampler2D     colortex0;
+uniform   sampler2D     colortex1;
+uniform   sampler2D     colortex2;
 uniform   sampler2D     gdepth;
 uniform   sampler2D     depthtex1;
 
 uniform   mat4          gbufferProjectionInverse;
+uniform   mat4          gbufferProjectionMatrix;
 
 uniform   float         viewHeight;
 uniform   float         viewWidth;
+uniform   float         centerDepthSmooth;
+
+varying   vec4          texcoord;
 
 void vignette(inout vec3 color) {
     float dist = distance(texcoord.st, vec2(0.5)) * 2.0;
@@ -105,26 +114,24 @@ void dither(inout vec3 color) {
     color += lestynRGB.rgb / 255.0;
 }
 
-float getCameraDepthBuffer(in vec2 coord) {
-    vec3 pos = vec3(coord, texture2D(depthtex1, coord).r);
-    vec4 v = gbufferProjectionInverse * vec4(pos * 2.0 - 1.0, 1.0);
-    return length(pos) / v.w;
-}
-
 float getDofFactor(in float sample1, in float sample2) {
     return abs(sample1 - sample2);
 }
 
 void weightSample(inout float tempSample, inout float tempFactor, inout float sampleCount, inout vec3 color, in vec2 temp, in float fragSample) {
-    tempSample = min(getCameraDepthBuffer(temp) / dofStrength, 1.0);
+    tempSample = min(texture2D(depthtex1, temp).r / dofStrength, 1.0);
     tempFactor = 1.0 - getDofFactor(tempSample, fragSample);
-    color += texture2D(gcolor, temp).rgb * tempFactor;
+    color += texture2D(colortex0, temp).rgb * tempFactor;
     sampleCount += tempFactor;
+}
+
+void bloom(inout vec3 color, in float strength) {
+    color += texture2D(colortex1, texcoord.st).rgb * strength;
 }
 
 void main() {
     #ifdef CINEMATIC_MODE
-    float isBlack = float(texcoord.y <= 0.1 || texcoord.y >= 0.9);
+    float isBlack = float(texcoord.t <= 0.1 || texcoord.t >= 0.9);
     #else
     float isBlack = 0.0;
     #endif
@@ -132,15 +139,19 @@ void main() {
     vec3 color = vec3(0.0);
 
     if (isBlack == 0.0) {
-        color = texture2D(gcolor, texcoord.st).rgb;
+        color = texture2D(colortex0, texcoord.st).rgb;
 
         // DOF //
         #include "/lib/dof.glsl"
-        
+
         color = getExposure(color);
 
         #ifdef VIGNETTE
             vignette(color);
+        #endif
+
+        #ifdef BLOOM
+            bloom(color, texture2D(colortex2, texcoord.st).r * 0.5);
         #endif
 
         color = reinhard(color);
@@ -149,5 +160,5 @@ void main() {
         color = vec3(0.0);
     }
 
-    gl_FragColor = vec4(color.rgb, 1.0);
+    gl_FragColor = vec4(color, 1.0);
 }
