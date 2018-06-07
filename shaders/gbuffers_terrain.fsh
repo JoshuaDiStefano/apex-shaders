@@ -25,16 +25,10 @@ void main() {
     #else
         blockColor.rgb *= tintColor;
     #endif
-    
-    if (isFire == 0.0) {
-        FragData0 = blockColor;
-    } else {
-        FragData0 = blockColor;
-        //FragData0 = vec4(1.0);
-    }
 
-    vec2 lm = lmcoord.st / 16.0;
+    vec2 lm = lmcoord.st / 256.0;
 
+    FragData0 = blockColor;
     FragData1 = vec4(lm, isEmissive, 1.0);
     FragData2 = vec4(normalOut * 0.5 + 0.5, 1.0);
 }
