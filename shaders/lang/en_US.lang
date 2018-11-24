@@ -1,0 +1,114 @@
+#shaders/lang/en_US.lang
+
+#Screens
+screen.Postprocessing=Post Processing
+screen.DOF=Depth of Field
+
+#Settings
+option.FOG=Fog
+option.FOG.comment=Enables/disables fog rendering.
+
+option.shadowMapResolution=Shadow Resolution
+option.shadowMapResolution.comment=Use higher values for higher quality shadows. High performance impact!
+
+option.sunPathRotation=Shadow Rotation Offset
+option.sunPathRotation.comment=Changes the angle of the sun. This is your fault Builderb0y!
+
+option.shadowDistance=Shadow Distance
+option.shadowDistance.comment=Changes how far shadows are rendered. Higher values mean higher quality shadows at farther distances. Smaller values mean higher quality shadows at shorter distances.
+
+option.TRANSPARENT_SHADOWS=Shadows on Transparents
+option.TRANSPARENT_SHADOWS.comment=Whether shadows are cast on transparent blocks (water, glass, etc.). High performance impact!
+
+option.GRASS_SHADOWS=Plant Shadows
+option.GRASS_SHADOWS.comment=Whether plants cast shadows.
+
+option.SHADOW_STRENGTH=Shadow Strength
+option.SHADOW_STRENGTH.comment=Controls how dark shadows are.
+
+option.PCSS=Percentage Closer Soft Shadows
+option.PCSS.comment=Makes shadows more realistic softening them as they get farther from the caster (PCSS). High performance impact!
+
+option.RANDOM_ROTATION=Grain
+option.RANDOM_ROTATION.comment=Helps to make blurred shadow edges smoother. Adds noise, but removes banding. Medium performance impact.
+
+option.PCSS_SAMPLE_COUNT=PCSS Quality
+option.PCSS_SAMPLE_COUNT.comment=Higher values means higher quality PCSS. Medium performance impact.
+
+option.PCF_SAMPLE_COUNT=Filter Quality
+option.PCF_SAMPLE_COUNT.comment=Higher values means higher quality filtering. Makes shadow edges appear smoother. Medium performance impact.
+
+option.LIGHT_SIZE=Light Size
+option.LIGHT_SIZE.comment=Adjusts the assumed size of the sun. Higher values means softer shadows. Only effective with PCSS enabled!
+
+option.MIN_PENUMBRA_SIZE=Minimum Blur
+option.MIN_PENUMBRA_SIZE.comment=Minimum size of blurred shadow edges. 0 means completely sharp shadows. Only effective with PCSS enabled!
+
+option.VANILLA_SUN=Vanilla Sun
+option.VANILLA_SUN.comment=Whether to use the vanilla sun or circular sun.
+
+option.VANILLA_MOON=Vanilla Moon
+option.VANILLA_MOON.comment=Whether to use the vanilla moon or circular moon.
+
+option.SUN_POSITION_FIX=Sun Position Fix
+option.SUN_POSITION_FIX.comment=Used to fix the position of the sun in sky calculation. Only necessary when running at low frame rates (less than 30).
+
+option.WAVING_DEADBUSH=Waving Deadbush
+option.WAVING_DEADBUSH.comment=Waving Deadbush
+
+option.WAVING_LEAVES=Waving Leaves
+option.WAVING_LEAVES.comment=Waving Leaves
+
+option.WAVING_FIRE=Waving Fire
+option.WAVING_FIRE.comment=Waving Fire
+
+option.WAVING_VINES=Waving Vines
+option.WAVING_VINES.comment=Waving Vines
+
+option.WAVING_GRASS=Waving Grass
+option.WAVING_GRASS.comment=Waving Grass
+
+option.WAVING_WHEAT=Waving Wheat
+option.WAVING_WHEAT.comment=Waving Wheat
+
+option.WAVING_COBWEB=Waving Cobweb
+option.WAVING_COBWEB.comment=Waving Cobweb
+
+option.LOWPOLY_WATER=Low-poly Water
+option.LOWPOLY_WATER.comment=Uses only vertex offsets for waves on water. Looks cool, not realistic. Currently broken!
+
+option.CINEMATIC_MODE=Cinematic Mode
+option.CINEMATIC_MODE.comment=Classic letterboxing. Used to simulate a widescreen image being displayed on a taller screen. Good for videos. Bad for screenshots and gameplay.
+
+option.CLAY=Clay Mode
+option.CLAY.comment=Everything is made out of clay :D
+
+option.VIGNETTE=Vignette
+option.VIGNETTE.comment=Darkens corners of screen.
+
+option.WAVING_CAMERA=Waving Camera
+option.WAVING_CAMERA.comment=Waving Camera
+
+option.WAVING_HAND=Waving Hand
+option.WAVING_HAND.comment=Waving Hand
+
+option.DOF=Depth of Field
+option.DOF.comment=Simulates the way the eye focuses by blurring objects not in focus (DoF). Medium performance impact.
+
+option.centerDepthHalflife=DoF Focus Transition Speed
+option.centerDepthHalflife.comment=Adjust how long it takes to change focus. Higher values means longer transition time.
+
+option.APERTURE=Aperture
+option.APERTURE.comment=Use bigger values for shallower depth of field.
+
+option.TILT_SHIFT=Tilt Shift
+option.TILT_SHIFT.comment=Simulates a Tilt Shift lens. Also known as the "Model Train" effect.
+
+option.DOF_FALLOFF_STRENGTH=Depth of Field Strength
+option.DOF_FALLOFF_STRENGTH.comment=Similar to aperture. Higher values means stronger DoF.
+
+option.BLOOM=Bloom
+option.BLOOM.comment=Makes objects appear to glow when bright enough. Medium performance impact.
+
+option.BLOOM_STRENGTH=Bloom Strength
+option.BLOOM_STRENGTH.comment=Controls the strength of the bloom effect.
