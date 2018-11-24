@@ -6,9 +6,8 @@
 
 varying   vec4          color;
 
-
 void main() {
 	#include "/lib/shakingCamera.glsl"
-
+	
     color = gl_Color;
 }
