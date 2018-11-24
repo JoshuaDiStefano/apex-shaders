@@ -14,8 +14,6 @@ varying   vec4          texcoord;
 /* DRAWBUFFERS:01 */
 
 void main() {
-    vec3 colorOut = texture2D(colortex0, texcoord.st).rgb;
-
-    FragData0 = vec4(colorOut, 1.0);
+    FragData0 = vec4(texture2D(colortex0, texcoord.st).rgb, 1.0);
     FragData1 = gaussian(colortex1, vec2(viewWidth, viewHeight), vec2(1.0, 0.0), texcoord.st, BLOOM_STRENGTH);
 }
