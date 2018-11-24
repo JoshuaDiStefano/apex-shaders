@@ -14,27 +14,27 @@
 #define   WAVING_FIRE
 #define   WAVING_COBWEB
 
-#define   ENTITY_LEAVES                             18.0
-#define   ENTITY_NEWLEAVES                          161.0
-#define   ENTITY_VINES                              10106.0
-#define   ENTITY_TALLGRASS                          31.0
-#define   ENTITY_DEADBUSH                           10032.0
-#define   ENTITY_TALLERGRASS                        10175.0
-#define   ENTITY_DANDELION                          10037.0
-#define   ENTITY_ROSE                               10038.0
-#define   ENTITY_WHEAT                              59.0
-#define   ENTITY_FIRE                               51.0
-#define   ENTITY_COBWEB                             10030.0
+#define   ENTITY_LEAVES                             11050.0
+#define   ENTITY_VINES                              11060.0
+#define   ENTITY_TALLGRASS                          11000.0
+#define   ENTITY_DEADBUSH                           11010.0
+#define   ENTITY_TALLERGRASS                        11030.0
+#define   ENTITY_WHEAT                              11020.0
+#define   ENTITY_FIRE                               12153.0
+#define   ENTITY_COBWEB                             11075.0
 
 attribute vec4 mc_Entity;
 attribute vec4 mc_midTexCoord;
+attribute vec4 at_tangent;
 
 uniform   sampler2D     normals;
 
 uniform   vec3          cameraPosition;
 
+varying   mat3          tbn;
+
 varying   vec3          tintColor;
-varying   vec3          normalOut;
+varying   vec3          normal;
 
 varying   vec4          texcoord;
 varying   vec4          lmcoord;
@@ -102,9 +102,6 @@ void main() {
 	if (mc_Entity.x == ENTITY_LEAVES) {
 		position.xyz += calcMove(worldpos.xyz, 0.0040, 0.0064, 0.0043, 0.0035, 0.0037, 0.0041, vec3(1.0,0.2,1.0), vec3(0.5,0.1,0.5));
     }
-    if (mc_Entity.x == ENTITY_NEWLEAVES) {
-		position.xyz += calcMove(worldpos.xyz, 0.0040, 0.0064, 0.0043, 0.0035, 0.0037, 0.0041, vec3(1.0,0.2,1.0), vec3(0.5,0.1,0.5));
-    }
 	#endif
 
 	#ifdef WAVING_VINES
@@ -125,11 +122,6 @@ void main() {
         if (mc_Entity.x == ENTITY_TALLERGRASS) {
             position.xyz += calcMove(worldpos.xyz, 0.0041, 0.0070, 0.0044, 0.0038, 0.0063, 0.0000, vec3(0.8,0.0,0.8), vec3(0.4,0.0,0.4));
         }
-        #endif
-        
-        #ifdef WAVING_FLOWERS
-        if (mc_Entity.x == ENTITY_DANDELION || mc_Entity.x == ENTITY_ROSE)
-            position.xyz += calcMove(worldpos.xyz, 0.0041, 0.005, 0.0044, 0.0038, 0.0240, 0.0000, vec3(0.8,0.0,0.8), vec3(0.4,0.0,0.4));
         #endif
 
         #ifdef WAVING_WHEAT
@@ -157,29 +149,23 @@ void main() {
 
     float id = mc_Entity.x;
 
-    isEmissive = float(id == 6.0 ||
-                        id == 10030.0 ||
-                        id == 31.0 ||
-                        id == 10032.0 ||
-                        id == 10037.0 ||
-                        id == 10038.0 ||
-                        id == 39.0 ||
-                        id == 40.0 ||
-                        id == 55.0 ||
-                        id == 59.0 ||
-                        id == 83.0 ||
-                        id == 104.0 ||
-                        id == 105.0 ||
-                        id == 10106.0 ||
-                        id == 132.0 ||
-                        id == 141.0 ||
-                        id == 142.0 ||
-                        id == 10175.0
-                        );
+    isEmissive = float(id == 11000.0 ||
+                       id == 11010.0 ||
+                       id == 11020.0 ||
+                       id == 11030.0 ||
+                       id == 11040.0 ||
+                       id == 11080.0 ||
+                       id == 12153.0
+                      );
 
-    isFire = float(mc_Entity.x == 51.0);
-    isLava = float(mc_Entity.x == 10.0 || mc_Entity.x == 11.0);
+    isFire = float(mc_Entity.x == ENTITY_FIRE);
+    isLava = float(mc_Entity.x == 12152.0);
     
     tintColor = gl_Color.rgb;
-    normalOut = normalize(gl_NormalMatrix * gl_Normal);
+
+    normal = normalize(gl_NormalMatrix * gl_Normal);
+	
+	tbn = mat3(normalize(gl_NormalMatrix * at_tangent.xyz),
+			   normalize(gl_NormalMatrix * cross(at_tangent.xyz, gl_Normal.xyz) * sign(at_tangent.w)),
+			   normal);
 }
