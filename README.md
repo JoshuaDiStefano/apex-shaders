@@ -2,6 +2,40 @@
 
 CHANGELOG:
 
+Version 1.4:
+
++New sky! Looks much more realistic
+
+    -Options for vanilla sun/moon - I recommend using custom sun and vanilla moon
+
++Added fog/rain effects/underwater/lava fog
+
++New water - nice and wavy
+
++Film grain - removes banding, but I still need to animate it
+
++Added setting for grass shadows
+
++Added setting for shadow strength
+
++Made menus actually readable (thank God)
+
+///
+
+*Quote: "Fixed the goddamn jenky-ass specular"
+
+*Fixed penumbra size mixing between solids and transparents
+
+*Fixed spider eyes being super bright
+
+*Fixed vanilla clouds (they just kinda work now)
+
+*Completely fixed torchlight desaturation
+
+///
+
+///
+
 Version 1.3:
 
 +Specular (more or less)
