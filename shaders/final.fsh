@@ -21,15 +21,24 @@ const     mat2          rot                       = mat2(cos(GA),sin(GA),-sin(GA
 uniform   sampler2D     colortex0;
 uniform   sampler2D     colortex1;
 uniform   sampler2D     colortex2;
+uniform   sampler2D     colortex3;
 uniform   sampler2D     gdepth;
 uniform   sampler2D     depthtex1;
+uniform   sampler2D     depthtex0;
 
 uniform   mat4          gbufferProjectionInverse;
 uniform   mat4          gbufferProjectionMatrix;
 
+uniform   vec3          fogColor;
+
 uniform   float         viewHeight;
 uniform   float         viewWidth;
 uniform   float         centerDepthSmooth;
+uniform   float         fogDensity;
+uniform   float         near;
+uniform   float         far;
+
+uniform   int           isEyeInWater;
 
 varying   vec4          texcoord;
 
@@ -121,13 +130,19 @@ float getDofFactor(in float sample1, in float sample2) {
 void weightSample(inout float tempSample, inout float tempFactor, inout float sampleCount, inout vec3 color, in vec2 temp, in float fragSample) {
     tempSample = min(texture2D(depthtex1, temp).r / dofStrength, 1.0);
     tempFactor = 1.0 - getDofFactor(tempSample, fragSample);
-    color += texture2D(colortex0, temp).rgb * tempFactor;
-    sampleCount += tempFactor;
+    if (tempFactor > 0.5) {
+        color += texture2DLod(colortex0, temp, 0).rgb * tempFactor;
+        sampleCount += tempFactor;
+    }
 }
 
 void bloom(inout vec3 color, in float strength) {
     color += texture2D(colortex1, texcoord.st).rgb * strength;
+    color += texture2DLod(colortex1, texcoord.st, 1).rgb * strength;
+    color += texture2DLod(colortex1, texcoord.st, 2).rgb * strength;
+    color += texture2DLod(colortex1, texcoord.st, 3).rgb * strength;
 }
+
 
 void main() {
     #ifdef CINEMATIC_MODE
@@ -136,7 +151,7 @@ void main() {
     float isBlack = 0.0;
     #endif
 
-    vec3 color = vec3(0.0);
+    vec3 color;
 
     if (isBlack == 0.0) {
         color = texture2D(colortex0, texcoord.st).rgb;
@@ -144,14 +159,14 @@ void main() {
         // DOF //
         #include "/lib/dof.glsl"
 
+        #ifdef BLOOM
+            bloom(color, clamp(texture2D(colortex2, texcoord.st).r * 0.25, 0.0, 1.0));
+        #endif
+
         color = getExposure(color);
 
         #ifdef VIGNETTE
             vignette(color);
-        #endif
-
-        #ifdef BLOOM
-            bloom(color, texture2D(colortex2, texcoord.st).r * 0.5);
         #endif
 
         color = reinhard(color);
