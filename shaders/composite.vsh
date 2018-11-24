@@ -1,12 +1,13 @@
 #version 120
 
-uniform   mat4          gbufferModelView;
-uniform   mat4          gbufferModelViewInverse;
+#include "/lib/framebuffer.glsl"
 
 uniform   vec3          shadowLightPosition;
+uniform   vec3          sunPosition;
 uniform   vec3          cameraPosition;
 
 uniform   float         sunAngle;
+uniform   float         rainStrength;
 
 uniform   int           worldTime;
 
@@ -31,7 +32,7 @@ void main() {
     lightVector = normalize(shadowLightPosition);
 
     if (sunAngle <= 0.5) {
-        lightColor = vec3(vec2(1.0), 0.5) * 15.0;
+        lightColor = vec3(vec2(1.0), 0.5) * 15.0 * (1.0 - rainStrength);
         isNight = 0.0;
     } else {
         lightColor = vec3(vec2(0.025), 0.075);
@@ -54,5 +55,5 @@ void main() {
 	vec3 sunset = vec3(0.95) * timeSunset;
 	vec3 midnight =  vec3(0.45, 0.45, 0.7) * timeMidnight - 0.2;
 
-	skyColor = sunrise + noon + sunset + midnight;
+	skyColor = (((sunrise + noon + sunset + midnight) / 4.0) * (1.0 - rainStrength) + 0.05) * (1.0 - SHADOW_STRENGTH);
 }
